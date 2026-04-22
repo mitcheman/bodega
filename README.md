@@ -117,16 +117,52 @@ Before `/bodega:setup`, the machine needs:
 - **Node.js 20+**
 - **A package manager** — npm, pnpm, yarn, or bun
 
-You'll sign in to (but not pre-create) a **Vercel account** (free) and a
-**Stripe account** (free; merchant-side KYC). A **domain** is recommended
-(~$12/yr via Cloudflare Registrar) but you can also just use the
-default `<name>.vercel.app` URL Vercel gives you for free — the plugin
-will use that until you bind a real domain.
+You'll sign in to (but not pre-create) a **Vercel account** and a
+**Stripe account** (free to open; merchant-side KYC required).
 
 **Not required:** GitHub account (only for optional backup), Next.js
 knowledge, or code editing.
 
 Run `/bodega:doctor` any time to check your environment.
+
+## Costs (honest breakdown)
+
+Bodega itself is free (Apache 2.0). The real monthly costs are the
+services it uses on the merchant's behalf. Not hidden, not subsidized.
+
+**Required to run a real commercial store:**
+
+| Service | Cost | Why |
+|---|---|---|
+| **Vercel Pro** | **$20/mo per user** | Vercel's free Hobby tier is explicitly *non-commercial use only* (per their Fair Use Guidelines). A live store that takes real money needs Pro. This covers hosting, SSL, Blob storage, and analytics. |
+| **Stripe transaction fees** | 2.9% + $0.30 per US card | No monthly fee. Paid out of each sale. International / cross-border slightly higher. |
+
+**Optional:**
+
+| Service | Cost | Why |
+|---|---|---|
+| Custom domain (Cloudflare Registrar at wholesale) | ~$12/yr | If you skip, the site stays at `<slug>.vercel.app` — ugly but free. |
+| Resend transactional email | Free for 3k emails/mo, $20/mo above | Magic-link logins, order receipts, shipping confirmations. Free tier covers most small stores. |
+| Shippo for shipping labels | Pay-per-label (~carrier cost + $0.05-0.10) | No monthly fee. Skip it entirely and merchants print via USPS Click-N-Ship. |
+| Stripe Tax (auto sales-tax) | 0.4% of applicable transactions | Optional. Small stores can handle tax manually until they cross state nexus thresholds. |
+| GitHub (private repo for code backup) | Free | Optional, enabled via `/bodega:backup`. |
+
+**Small-store example** (muddmann-scale: ~20 orders/mo, ~$1k GMV):
+- Vercel Pro: $20/mo
+- Stripe: ~$32/mo (2.9% + 30¢ × 20)
+- Resend: $0 (free tier)
+- Domain: ~$1/mo amortized
+- **Total: ~$53/mo + 3% of revenue**
+
+For comparison at that volume: **Shopify Basic** ($39/mo + 2.9% + $0.30) = ~$71/mo. **Squarespace Commerce** ($27-49/mo + 0% fees) = ~$27-49/mo. **Big Cartel** ($15-30/mo + 0% fees) = ~$15-30/mo (but capped product counts + template-only).
+
+Bodega sits mid-pack on *cost*. The value is the custom design — the
+merchant's site looks like *their* shop, not a template.
+
+**During setup / development** (before real commerce): Hobby tier is
+fine. You can scaffold, deploy, and test in Stripe's test mode on
+Vercel Hobby without violating their terms. The commercial restriction
+only kicks in when real money starts flowing.
 
 ## Install
 
