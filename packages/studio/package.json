@@ -14,7 +14,8 @@
     "./routes/auth-verify": "./src/routes/auth-verify.ts",
     "./routes/auth-logout": "./src/routes/auth-logout.ts",
     "./routes/auth-magic-link": "./src/routes/auth-magic-link.ts",
-    "./routes/products": "./src/routes/products.ts"
+    "./routes/products": "./src/routes/products.ts",
+    "./routes/orders": "./src/routes/orders.ts"
   },
   "files": [
     "src/",

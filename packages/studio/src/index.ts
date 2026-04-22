@@ -25,3 +25,6 @@ export { LoginPage } from './components/LoginPage.js';
 export { StudioHome } from './components/StudioHome.js';
 export { ProductsPage } from './components/ProductsPage.js';
 export { ProductEditor } from './components/ProductEditor.js';
+export { OrdersPage } from './components/OrdersPage.js';
+export { OrderDetail } from './components/OrderDetail.js';
+export { MarkShippedButton } from './components/MarkShippedButton.js';
