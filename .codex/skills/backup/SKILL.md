@@ -176,6 +176,13 @@ No user-facing output unless it fails.
 
 - **Never create a public repo by default.** Always `--private`.
 - **Never push without warning if the working tree contains secret
-  patterns.** Bodega's secret-scanner lives in scripts/scan-secrets.mjs.
+  patterns.** Bodega's secret-scanner lives at
+  `.codex/skills/backup/scripts/scan-secrets.mjs`. Run it before every push:
+
+  ```
+  node .codex/skills/backup/scripts/scan-secrets.mjs
+  ```
+
+  Exit 0 = safe to push. Exit 1 = findings; stop and clean up first.
 - **Don't push during an interactive rebase or merge conflict.** Detect
   and ask first.

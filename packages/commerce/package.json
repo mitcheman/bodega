@@ -1,23 +1,47 @@
 {
   "name": "@bodega/commerce",
   "version": "0.0.1",
-  "description": "Commerce components for Bodega stores. Framework-agnostic TypeScript library: ProductGrid, ProductPage, Cart, Checkout. Themeable via CSS custom properties.",
+  "description": "Commerce components for Bodega stores. TypeScript library for Next.js App Router: ProductGrid, ProductPage, Cart, Checkout, plus route handlers and Vercel Blob storage. Themeable via CSS custom properties.",
   "license": "Apache-2.0",
-  "private": true,
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./theme": "./src/theme.ts",
-    "./types": "./src/types.ts",
-    "./storage": "./src/storage/blob.ts",
-    "./routes/cart": "./src/routes/cart.ts",
-    "./routes/cart-items": "./src/routes/cart-items.ts",
-    "./routes/checkout": "./src/routes/checkout.ts",
-    "./routes/stripe-webhook": "./src/routes/stripe-webhook.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./theme": {
+      "types": "./dist/theme.d.ts",
+      "import": "./dist/theme.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js"
+    },
+    "./storage": {
+      "types": "./dist/storage/blob.d.ts",
+      "import": "./dist/storage/blob.js"
+    },
+    "./routes/cart": {
+      "types": "./dist/routes/cart.d.ts",
+      "import": "./dist/routes/cart.js"
+    },
+    "./routes/cart-items": {
+      "types": "./dist/routes/cart-items.d.ts",
+      "import": "./dist/routes/cart-items.js"
+    },
+    "./routes/checkout": {
+      "types": "./dist/routes/checkout.d.ts",
+      "import": "./dist/routes/checkout.js"
+    },
+    "./routes/stripe-webhook": {
+      "types": "./dist/routes/stripe-webhook.d.ts",
+      "import": "./dist/routes/stripe-webhook.js"
+    }
   },
   "files": [
-    "src/",
+    "dist",
     "README.md",
     "LICENSE"
   ],
@@ -38,7 +62,16 @@
     "@types/react-dom": "^19.0.0"
   },
   "scripts": {
+    "build": "tsc --project tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "lint": "echo 'lint not yet implemented'"
-  }
+    "prepublishOnly": "pnpm build"
+  },
+  "keywords": [
+    "commerce",
+    "storefront",
+    "stripe",
+    "nextjs",
+    "react",
+    "ecommerce"
+  ]
 }

@@ -27,6 +27,16 @@ npm install @bodega/commerce @bodega/studio
 
 (Detect pnpm/yarn/bun from lockfile and match.)
 
+**Note on dev installs**: if the packages haven't been published to npm
+yet (pre-release), install from the local workspace instead:
+
+```
+npm install file:<path-to-bodega>/packages/commerce file:<path-to-bodega>/packages/studio
+```
+
+The plugin reads `.bodega.md` → `plugin_repo_path` for the path. Falls
+back to the npm registry when that field is absent.
+
 ## Step 2 — Resolve design tokens
 
 The commerce SDK themes via CSS custom properties. Token resolution order:
@@ -90,7 +100,47 @@ by passing `mode="preview"` in the layout.
 
 Full commerce. Checkout works. Cart works. Stripe webhook listens.
 
-## Step 5 — Register the Stripe webhook
+## Step 5 — Provision required environment variables
+
+Before deploying, the SDK needs these env vars on Vercel. Provision
+them all in one pass:
+
+```
+# Generate two secrets (auto — don't ask the user)
+BODEGA_SESSION_SECRET=$(openssl rand -base64 32)
+BODEGA_ADMIN_SECRET=$(openssl rand -base64 32)
+
+vercel env add BODEGA_SESSION_SECRET production <<< "$BODEGA_SESSION_SECRET"
+vercel env add BODEGA_ADMIN_SECRET production <<< "$BODEGA_ADMIN_SECRET"
+
+# From .bodega.md — business name, merchant email
+vercel env add BODEGA_STORE_NAME production <<< "<business.name>"
+vercel env add BODEGA_MERCHANT_EMAIL production <<< "<merchant.email>"
+
+# Sending domain — defaults to our shared one until the merchant
+# verifies their own domain with Resend
+vercel env add BODEGA_FROM_EMAIL production <<< "orders@bodega.email"
+```
+
+For `RESEND_API_KEY`, ask the user:
+
+> Paste your Resend API key (get one at resend.com/api-keys).
+> Free tier covers your first 100 emails/day.
+
+Write it to Vercel:
+
+```
+vercel env add RESEND_API_KEY production
+```
+
+Record in `.bodega.md`:
+
+```yaml
+state:
+  env_vars_provisioned: true
+```
+
+## Step 6 — Register the Stripe webhook
 
 With the production URL known, register with Stripe:
 
@@ -108,9 +158,13 @@ Subscribe to:
 - `charge.refunded`
 - `account.updated`
 
-Store webhook signing secret as `STRIPE_WEBHOOK_SECRET`.
+Store webhook signing secret as `STRIPE_WEBHOOK_SECRET`:
 
-## Step 6 — Deploy
+```
+vercel env add STRIPE_WEBHOOK_SECRET production
+```
+
+## Step 7 — Deploy
 
 ```
 vercel deploy --prod
@@ -130,13 +184,13 @@ Watch the build. On failure, surface the error in chosen voice.
 
 Retry once with the fix. Second failure → stop and ask for help.
 
-## Step 7 — Bind domain if custom
+## Step 8 — Bind domain if custom
 
 If `business.domain.preference: custom` and `state.domain: done`, the
 production URL should be the custom domain. Otherwise, the site is at
 `<slug>.vercel.app`.
 
-## Step 8 — Update `.bodega.md`
+## Step 9 — Update `.bodega.md`
 
 ```yaml
 state:
@@ -148,13 +202,13 @@ deploy:
   webhook_configured: true
 ```
 
-## Step 9 — Auto-backup if enabled
+## Step 10 — Auto-backup if enabled
 
 If `state.backup: done` and `backup.auto_push: true`, invoke
 `/bodega:backup` with mode=`update` to push the latest
 changes to GitHub.
 
-## Step 10 — Summary
+## Step 11 — Summary
 
 ### Developer voice:
 
