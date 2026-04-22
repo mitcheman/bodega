@@ -16,10 +16,15 @@ and warm. Never condescending.
    Do not continue. Say: *"This project already has Bodega set up. Run
    `/bodega:status` to see current state, or
    `/bodega:reconfigure` to change voice or beneficiary."* Exit.
-3. Check for `package.json`.
+3. **Run preflight (doctor)**: invoke `/bodega:doctor`.
+   - If doctor exits non-zero (critical failures): halt. Show the doctor
+     output to the user and tell them to fix those items before
+     re-running `/bodega:setup`.
+   - If doctor exits zero (clean or warnings only): continue.
+4. Check for `package.json`.
    - Present → **adapt mode**. An existing project; add commerce on top.
    - Absent → **greenfield mode**. Empty folder; scaffold the site first.
-4. In adapt mode, inspect the project:
+5. In adapt mode, inspect the project:
    - Framework? (We support Next.js 16. Others: best-effort.)
    - Is there a `.impeccable.md`? (Great — the commerce SDK reads tokens from it.)
    - Existing commerce routes (`/shop`, `/cart`, `/checkout`)? If yes, ask

@@ -45,16 +45,17 @@ function install() {
 
 function listSkills() {
   const skills = [
-    'setup      — First-time setup (the entry point)',
-    'hosting    — Sign in to Vercel and link a project',
-    'payments   — Stripe onboarding + capture keys',
-    'deploy     — Scaffold commerce routes and push live',
-    'admin      — /studio provisioning + merchant invite',
-    'domain     — Buy or connect a custom domain',
-    'backup     — Create a private GitHub backup (auto-push)',
-    'invite     — Resend a login link or add staff',
-    'status     — Report current state of the store',
-    'reconfigure— Change voice or beneficiary',
+    'setup        — First-time setup (the entry point)',
+    'doctor       — Preflight check (verify your machine has what Bodega needs)',
+    'hosting      — Sign in to Vercel and link a project',
+    'payments     — Stripe onboarding + capture keys',
+    'deploy       — Scaffold commerce routes and push live',
+    'admin        — /studio provisioning + merchant invite',
+    'domain       — Buy or connect a custom domain',
+    'backup       — Create a private GitHub backup (auto-push)',
+    'invite       — Resend a login link or add staff',
+    'status       — Report current state of the store',
+    'reconfigure  — Change voice or beneficiary',
     '(internal) greenfield-design — Scaffold design via impeccable',
   ];
   console.log('\nBodega skills:\n');

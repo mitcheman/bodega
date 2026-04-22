@@ -42,6 +42,32 @@ Bodega is a Claude Code plugin that adds the parts Claude hasn't finished yet:
 
 If you use Shopify at scale already, this isn't for you.
 
+## Requirements
+
+Before running `/bodega:setup`, your machine needs:
+
+**Critical:**
+- **Node.js 20+**
+- **A package manager** — npm, pnpm, yarn, or bun
+
+**Needed for full setup:**
+- **Vercel CLI** — we'll install it for you during the hosting step if
+  missing (or: `npm i -g vercel`)
+
+**Optional:**
+- **`gh` CLI** — only if you want backup to GitHub (install: https://cli.github.com)
+- **git** — only for backup (bundled on most systems)
+
+You'll also need to sign in to (but not pre-create):
+- A **Vercel account** (free; takes 30 seconds during setup)
+- A **Stripe account** (free; takes ~10 min during setup — KYC required)
+- Optionally a **domain** (or start on a free `<name>.bodega.store`)
+
+**Not required:** GitHub account, Next.js knowledge, any code editing
+beyond what Claude does for you.
+
+Run `/bodega:doctor` any time to verify your environment is ready.
+
 ## Install
 
 Bodega is distributed as a Claude Code plugin:

@@ -4,6 +4,20 @@
   "description": "Turn any Claude-built Next.js site into a working store. Hosting, payments, admin, and a non-technical merchant dashboard.",
   "license": "Apache-2.0",
   "skills": "./.claude/skills",
+  "skillList": [
+    "setup",
+    "doctor",
+    "greenfield-design",
+    "hosting",
+    "payments",
+    "deploy",
+    "admin",
+    "domain",
+    "backup",
+    "invite",
+    "status",
+    "reconfigure"
+  ],
   "keywords": [
     "commerce",
     "storefront",
