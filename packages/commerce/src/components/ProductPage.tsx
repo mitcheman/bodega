@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getStorage } from '../storage/blob.js';
 import { formatPrice } from '../format.js';
+import { AddToCartButton } from './AddToCartButton.js';
 import type { Product } from '../types.js';
 
 interface ProductPageProps {
@@ -140,8 +141,7 @@ function ProductInfo({ product }: { product: Product }) {
         </div>
       )}
 
-      {/* AddToCart client component lands in the next commit. */}
-      <AddToCartPlaceholder soldOut={soldOut} />
+      <AddToCartButton product={product} />
 
       {product.tags.length > 0 && (
         <div
@@ -172,31 +172,3 @@ function ProductInfo({ product }: { product: Product }) {
   );
 }
 
-/**
- * Placeholder for the Add-to-Cart button. Replaced by a real client
- * component in the cart commit. Rendering as a button with disabled
- * state so the page lays out correctly in the meantime.
- */
-function AddToCartPlaceholder({ soldOut }: { soldOut: boolean }) {
-  return (
-    <button
-      type="button"
-      disabled
-      title="Cart functionality coming in the next release"
-      style={{
-        width: '100%',
-        padding: '0.875rem 1.5rem',
-        fontSize: '1rem',
-        fontFamily: 'var(--bodega-font-body)',
-        fontWeight: 500,
-        color: 'var(--bodega-bg)',
-        background: soldOut ? 'var(--bodega-muted)' : 'var(--bodega-accent)',
-        border: 'none',
-        cursor: 'not-allowed',
-        opacity: 0.7,
-      }}
-    >
-      {soldOut ? 'Sold out' : 'Add to cart (coming soon)'}
-    </button>
-  );
-}

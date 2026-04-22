@@ -31,12 +31,15 @@ export { formatPrice } from './format.js';
 export type { CommerceStorage } from './storage/interface.js';
 export { VercelBlobStorage, getStorage, computeCartSubtotal } from './storage/blob.js';
 
-// Components — storefront (read-side)
+// Cart state (client-side)
+export { CartProvider, useCart, subtotalOf } from './cart/state.js';
+
+// Components — storefront (server)
 export { ProductGrid } from './components/ProductGrid.js';
 export { ProductCard } from './components/ProductCard.js';
 export { ProductPage } from './components/ProductPage.js';
 
-// Components — cart + checkout (coming in next commit)
-// export { CartProvider, useCart } from './cart/state.js';
-// export { Cart } from './components/Cart.js';
-// export { Checkout } from './components/Checkout.js';
+// Components — cart + checkout (client)
+export { AddToCartButton } from './components/AddToCartButton.js';
+export { Cart } from './components/Cart.js';
+export { Checkout } from './components/Checkout.js';
