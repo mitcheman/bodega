@@ -1,13 +1,13 @@
 # Assets
 
-## `bodega.png`
+## `bodega.jpg`
 
 The watercolor storefront hero used at the top of the root `README.md`.
 
-**To add the image**: save the watercolor image to `./bodega.png` in this
-directory. The root README already references it via
-`<img src="./assets/bodega.png" />`.
+Compressed from a 1254×1254 PNG source (~2.3 MB) down to 840×840 JPEG
+at 85% quality (~240 KB) — retina-sharp at the 420 px display width,
+without dominating the repo download.
 
-Recommended dimensions: square (1:1), at least 1200×1200 px for retina
-displays. PNG or WebP both work. If you replace the file, keep the
-filename stable so the README link doesn't break.
+If you replace the image later, either keep the filename stable
+(`bodega.jpg`) or update the `<img src="...">` path in the root
+README at the same time.

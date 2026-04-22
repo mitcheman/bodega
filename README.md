@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/bodega.png" alt="Bodega — a small hand-painted storefront with 'Bodega' on the sign, shelves of jars and produce inside, a paper lantern and potted plants out front" width="420" />
+  <img src="./assets/bodega.jpg" alt="Bodega — a small hand-painted storefront with 'Bodega' on the sign, shelves of jars and produce inside, a paper lantern and potted plants out front" width="420" />
 </p>
 
 <h1 align="center">Bodega</h1>
