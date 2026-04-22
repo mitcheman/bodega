@@ -90,7 +90,9 @@ Once the user returns with the domain, proceed as in Step 2a.
 yaml state: domain: skipped
 ```
 
-Exit. The site remains at `<slug>.bodega.store` (or `.vercel.app`).
+Exit. The site remains at the default Vercel URL (`<slug>.vercel.app`).
+Merchant can buy a custom domain later by running
+`{{command_prefix}}bodega:domain` again.
 
 ## Step 3 — Verification (async)
 

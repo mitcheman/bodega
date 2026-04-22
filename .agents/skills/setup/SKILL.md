@@ -61,7 +61,8 @@ Ask these five questions in the chosen voice:
 1. **What are you selling?** (pottery, prints, sailing lessons — free text)
 2. **Shipping from?** (city, "digital only", or "I deliver in person")
 3. **Domain preference** — three paths:
-   - Free for now: `<slug>.bodega.store` (pick a slug from their business name)
+   - Use the default Vercel URL for now (`<slug>.vercel.app`, free) —
+     pick a slug from their business name, but domain can be bound later
    - Custom domain they already own (ask which)
    - Custom domain not-yet-owned (`~$12/year`, we walk through it later)
 4. **Business name to show publicly** (for titles, SEO, receipts)

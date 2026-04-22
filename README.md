@@ -118,8 +118,10 @@ Before `/bodega:setup`, the machine needs:
 - **A package manager** — npm, pnpm, yarn, or bun
 
 You'll sign in to (but not pre-create) a **Vercel account** (free) and a
-**Stripe account** (free; merchant-side KYC). Optional: a **domain** (or
-start free on `<name>.bodega.store`).
+**Stripe account** (free; merchant-side KYC). A **domain** is recommended
+(~$12/yr via Cloudflare Registrar) but you can also just use the
+default `<name>.vercel.app` URL Vercel gives you for free — the plugin
+will use that until you bind a real domain.
 
 **Not required:** GitHub account (only for optional backup), Next.js
 knowledge, or code editing.
