@@ -54,37 +54,86 @@ Import from `app/layout.tsx`.
 
 ## Step 3 — Scaffold commerce routes
 
-Create these files (if not present):
+Create these files (if not present). Every server-component page that
+reads from storage needs `export const dynamic = 'force-dynamic'` —
+products, inventory, and orders change per-request, so SSG would lie.
 
 ```
-app/shop/page.tsx              # product grid
-app/shop/[slug]/page.tsx       # product detail
-app/cart/page.tsx              # cart
-app/checkout/page.tsx          # checkout (Stripe Elements)
-app/api/stripe/webhook/route.ts
-app/api/bodega/[...path]/route.ts  # SDK's internal API
-app/studio/layout.tsx          # admin shell
-app/studio/page.tsx            # /studio root
-app/studio/products/new/page.tsx
-app/studio/products/[id]/page.tsx
-app/studio/orders/page.tsx
-app/studio/orders/[id]/page.tsx
-app/studio/settings/page.tsx
+app/shop/page.tsx                       # ProductGrid (dynamic)
+app/shop/[slug]/page.tsx                # ProductPage (dynamic)
+app/cart/page.tsx                       # Cart (client)
+app/checkout/page.tsx                   # Checkout (client, Stripe Elements)
+app/api/stripe/webhook/route.ts         # re-export from SDK
+app/api/bodega/cart/route.ts            # re-export
+app/api/bodega/cart/items/route.ts      # re-export
+app/api/bodega/cart/items/[product_id]/route.ts
+app/api/bodega/checkout/route.ts
+app/api/bodega/auth/login/route.ts
+app/api/bodega/auth/logout/route.ts
+app/api/bodega/auth/magic-link/route.ts
+app/api/bodega/products/route.ts
+app/api/bodega/products/[id]/route.ts
+app/api/bodega/orders/[id]/ship/route.ts
+app/studio/layout.tsx                   # StudioLayout (auth-gated)
+app/studio/page.tsx                     # StudioHome (dynamic)
+app/studio/login/page.tsx               # LoginPage (client)
+app/studio/verify/route.ts              # magic-link consume
+app/studio/products/page.tsx            # ProductsPage (dynamic)
+app/studio/products/new/page.tsx        # ProductEditor (client)
+app/studio/products/[id]/page.tsx       # ProductEditor with product (dynamic)
+app/studio/orders/page.tsx              # OrdersPage (dynamic)
+app/studio/orders/[id]/page.tsx         # OrderDetail (dynamic)
 ```
 
-Each is a thin wrapper importing `@bodega/commerce` or `@bodega/studio`
-components, passing props from `.bodega.md`.
+Each is a thin wrapper importing `@bodega/commerce` or `@bodega/studio`.
 
-Example `app/shop/page.tsx`:
+**Server-component page example** (`app/shop/page.tsx`):
 
 ```tsx
 import { ProductGrid } from '@bodega/commerce';
-import config from '@/.bodega.md';
+
+export const dynamic = 'force-dynamic';
 
 export default function ShopPage() {
-  return <ProductGrid config={config} />;
+  return <ProductGrid heading="Shop" />;
 }
 ```
+
+**Route handler example** (`app/api/bodega/cart/route.ts`):
+
+```ts
+export { GET } from '@bodega/commerce/routes/cart';
+```
+
+**Admin layout example** (`app/studio/layout.tsx`):
+
+```tsx
+import { StudioLayout } from '@bodega/studio';
+export default StudioLayout;
+```
+
+### Wrap the root layout with CartProvider
+
+Cart state lives client-side and is shared across the consumer
+experience. Edit `app/layout.tsx` to wrap `{children}`:
+
+```tsx
+import { CartProvider } from '@bodega/commerce';
+import './bodega-theme.css';
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <CartProvider>{children}</CartProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+Without this, any page using `useCart()` (Cart, Checkout, AddToCartButton)
+throws at render time.
 
 ## Step 4 — Preview mode vs. full commerce
 

@@ -9,35 +9,43 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./theme": {
       "types": "./dist/theme.d.ts",
-      "import": "./dist/theme.js"
+      "import": "./dist/theme.js",
+      "default": "./dist/theme.js"
     },
     "./types": {
       "types": "./dist/types.d.ts",
-      "import": "./dist/types.js"
+      "import": "./dist/types.js",
+      "default": "./dist/types.js"
     },
     "./storage": {
       "types": "./dist/storage/blob.d.ts",
-      "import": "./dist/storage/blob.js"
+      "import": "./dist/storage/blob.js",
+      "default": "./dist/storage/blob.js"
     },
     "./routes/cart": {
       "types": "./dist/routes/cart.d.ts",
-      "import": "./dist/routes/cart.js"
+      "import": "./dist/routes/cart.js",
+      "default": "./dist/routes/cart.js"
     },
     "./routes/cart-items": {
       "types": "./dist/routes/cart-items.d.ts",
-      "import": "./dist/routes/cart-items.js"
+      "import": "./dist/routes/cart-items.js",
+      "default": "./dist/routes/cart-items.js"
     },
     "./routes/checkout": {
       "types": "./dist/routes/checkout.d.ts",
-      "import": "./dist/routes/checkout.js"
+      "import": "./dist/routes/checkout.js",
+      "default": "./dist/routes/checkout.js"
     },
     "./routes/stripe-webhook": {
       "types": "./dist/routes/stripe-webhook.d.ts",
-      "import": "./dist/routes/stripe-webhook.js"
+      "import": "./dist/routes/stripe-webhook.js",
+      "default": "./dist/routes/stripe-webhook.js"
     }
   },
   "files": [
