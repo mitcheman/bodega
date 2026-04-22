@@ -1,6 +1,6 @@
 {
   "name": "@bodega/studio",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Merchant-facing admin UI for Bodega stores. Mountable at /studio with magic-link auth. Phone-first. Product CRUD, order fulfillment, session cookies.",
   "license": "Apache-2.0",
   "type": "module",

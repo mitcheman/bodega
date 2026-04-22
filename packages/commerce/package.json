@@ -1,6 +1,6 @@
 {
   "name": "@bodega/commerce",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Commerce components for Bodega stores. TypeScript library for Next.js App Router: ProductGrid, ProductPage, Cart, Checkout, plus route handlers and Vercel Blob storage. Themeable via CSS custom properties.",
   "license": "Apache-2.0",
   "type": "module",
