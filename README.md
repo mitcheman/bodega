@@ -15,23 +15,15 @@
 
 ---
 
-## Why this exists
+## What it is
 
-My partner is a potter. She wanted a real online store for her work — a
-shopping cart, a real checkout, shipping labels, a dashboard she could
-use from her phone. Not an Etsy listing. Not a Squarespace template that
-made her bowls look like someone else's bowls.
+Bodega is a Claude Code plugin. Point it at a Next.js project (yours,
+or one Claude just built) and it layers a real online store on top:
+`/shop`, `/cart`, `/checkout`, a phone-first `/studio` admin, Stripe,
+shipping, backups. One command, ~15 minutes.
 
-I'm technical enough to build it. I spent a weekend trying Squarespace,
-Shopify, Big Cartel, Wix — hated all of them, either for the template
-look or for the setup tax. Then I spent another weekend scaffolding it
-by hand with Claude Code and realized I was about to do this same dance
-for every other maker I know.
-
-Bodega is that second weekend, packaged. It's a Claude Code plugin that
-takes a Next.js site Claude already built for you and adds the parts
-Claude hasn't finished: a storefront, a merchant admin, Stripe, shipping,
-all of it. ~15 minutes, one command.
+No templates. No SaaS signup. The site stays yours — Bodega just wires
+the commerce layer in.
 
 ## Who it's for
 
