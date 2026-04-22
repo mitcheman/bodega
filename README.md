@@ -80,7 +80,7 @@ Run `/bodega:doctor` any time to verify your environment is ready.
 Or from source, while we're pre-release:
 
 ```
-npx skills add <you>/bodega
+npx skills add mitcheman/bodega
 ```
 
 Bodega pairs with [impeccable](https://impeccable.style) for design.
