@@ -17,13 +17,14 @@
 
 ## What it is
 
-Bodega is a Claude Code plugin. Point it at a Next.js project (yours,
-or one Claude just built) and it layers a real online store on top:
-`/shop`, `/cart`, `/checkout`, a phone-first `/studio` admin, Stripe,
-shipping, backups. One command, ~15 minutes.
+A Claude Code plugin that layers commerce into your Next.js app —
+cart, checkout, admin, Stripe, shipping, backups. One command,
+~15 minutes.
 
-No templates. No SaaS signup. The site stays yours — Bodega just wires
-the commerce layer in.
+Built because my partner wanted a site for her pottery and I wanted
+to build it with Claude Code. For anyone setting up a real store for
+a maker using an AI coding tool — for yourself, a partner, a friend,
+a client.
 
 ## Who it's for
 
