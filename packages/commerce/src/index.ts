@@ -43,3 +43,10 @@ export { ProductPage } from './components/ProductPage.js';
 export { AddToCartButton } from './components/AddToCartButton.js';
 export { Cart } from './components/Cart.js';
 export { Checkout } from './components/Checkout.js';
+
+// Route helpers — cart-session utilities (route files re-export directly)
+export {
+  getOrCreateCart,
+  readCart,
+  clearCartCookie,
+} from './routes/cart-session.js';

@@ -106,12 +106,18 @@ malformed, say so and ask again.
 ## Step 4 — Store keys in Vercel environment
 
 ```
-vercel env add STRIPE_PUBLISHABLE_KEY production
+vercel env add NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY production
 # paste pk_live_...
 vercel env add STRIPE_SECRET_KEY production
 # paste sk_live_...
 vercel env add BODEGA_MERCHANT_EMAIL production
 ```
+
+**Why the `NEXT_PUBLIC_` prefix on the publishable key:** Next.js only
+exposes env vars to client-side code if the name starts with
+`NEXT_PUBLIC_`. Our `<Checkout>` component reads the publishable key
+in the browser to initialize Stripe Elements. The secret key stays
+server-only (no prefix), so it's never shipped to the client.
 
 Never commit these to any file in the repo. They live in Vercel only.
 
