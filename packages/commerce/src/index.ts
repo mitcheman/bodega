@@ -1,10 +1,6 @@
 // Public entry point for @bodega/commerce.
-//
-// The components layer (ProductGrid, ProductPage, Cart, Checkout) lands
-// in a focused next pass when we can test against a real Next.js project.
-// For now: types and theme resolution — the foundation everything else
-// hangs off.
 
+// Domain types
 export type {
   Product,
   ProductKind,
@@ -18,6 +14,7 @@ export type {
   SetupState,
 } from './types.js';
 
+// Theme resolution
 export {
   DEFAULT_THEME,
   parseImpeccableTokens,
@@ -25,5 +22,21 @@ export {
   mergeThemes,
   themeToCss,
 } from './theme.js';
-
 export type { BodegaTheme } from './theme.js';
+
+// Format helpers
+export { formatPrice } from './format.js';
+
+// Storage
+export type { CommerceStorage } from './storage/interface.js';
+export { VercelBlobStorage, getStorage, computeCartSubtotal } from './storage/blob.js';
+
+// Components — storefront (read-side)
+export { ProductGrid } from './components/ProductGrid.js';
+export { ProductCard } from './components/ProductCard.js';
+export { ProductPage } from './components/ProductPage.js';
+
+// Components — cart + checkout (coming in next commit)
+// export { CartProvider, useCart } from './cart/state.js';
+// export { Cart } from './components/Cart.js';
+// export { Checkout } from './components/Checkout.js';

@@ -1,7 +1,7 @@
 {
   "name": "@bodega/commerce",
   "version": "0.0.1",
-  "description": "Commerce components for Bodega stores. Framework-agnostic TypeScript library: ProductGrid, ProductPage, Cart, Checkout. Themeable via CSS custom properties. Currently: types + theme resolver (components in progress).",
+  "description": "Commerce components for Bodega stores. Framework-agnostic TypeScript library: ProductGrid, ProductPage, Cart, Checkout. Themeable via CSS custom properties.",
   "license": "Apache-2.0",
   "private": true,
   "main": "./src/index.ts",
@@ -9,7 +9,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./theme": "./src/theme.ts",
-    "./types": "./src/types.ts"
+    "./types": "./src/types.ts",
+    "./storage": "./src/storage/blob.ts"
   },
   "files": [
     "src/",
@@ -18,10 +19,12 @@
   ],
   "peerDependencies": {
     "react": ">=18",
-    "react-dom": ">=18"
+    "react-dom": ">=18",
+    "next": ">=15"
   },
   "dependencies": {
-    "@stripe/stripe-js": "^4.0.0"
+    "@stripe/stripe-js": "^4.0.0",
+    "@vercel/blob": "^1.0.0"
   },
   "devDependencies": {
     "typescript": "^5.6.0",
