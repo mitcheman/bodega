@@ -2,24 +2,23 @@
 //
 // Storage layout:
 //
-//   products/{id}.json           — full Product records           (public)
-//   products/_index.json         — slug/published index           (public)
-//   orders/{id}.json             — full Order records             (private — PII)
-//   orders/_by-pi/{pi}.json      — pointer: { id } by PaymentIntent (private)
-//   carts/{id}.json              — Cart records (TTL: 90 days)    (private)
+//   products/{id}.json           — full Product records
+//   products/_index.json         — slug/published index
+//   orders/{id}.json             — full Order records
+//   orders/_by-pi/{pi}.json      — pointer: { id } by PaymentIntent
+//   carts/{id}.json              — Cart records (TTL: 90 days)
 //
-// Access rules:
-//   - Public blobs: products + index. Served to shoppers on /shop via
-//     predictable URLs. No sensitive data here.
-//   - Private blobs: orders, carts, magic-links. Contain customer PII
-//     or auth state. Reads go through get() with the server token.
+// Access model for Phase 1:
 //
-// All paths use addRandomSuffix: false + allowOverwrite: true so we can
-// update records in place using a deterministic pathname.
+//   All blobs are access: 'public' with UUID-based non-guessable paths.
+//   URLs are never exposed to the client — everything goes through our
+//   API routes. Consider this "private by obscurity + API gatekeeping."
+//   When we move to a real database (Neon), this whole module gets
+//   swapped out; the interface stays the same.
 //
-// API verified against @vercel/blob 2026 docs: put / list / head / del / get.
+// API verified against @vercel/blob v1 surface: put / list / del / head.
 
-import { put, list, get, del } from '@vercel/blob';
+import { put, list, del } from '@vercel/blob';
 import type { CommerceStorage } from './interface.js';
 import type { Product, Order, Cart, CartItem } from '../types.js';
 
@@ -31,47 +30,14 @@ function token(): string {
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
-/**
- * Read JSON from a public blob URL via fetch. Works only for
- * access: 'public' blobs.
- */
-async function readPublicJson<T>(url: string): Promise<T | null> {
+/** Read JSON from a blob URL. Works for public blobs. */
+async function readJson<T>(url: string): Promise<T | null> {
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) return null;
   return (await res.json()) as T;
 }
 
-/**
- * Read JSON from a private blob by pathname using the SDK's get(). The
- * returned stream is consumed into a string and parsed.
- */
-async function readPrivateJson<T>(pathname: string): Promise<T | null> {
-  const result = await get(pathname, { access: 'private', token: token() });
-  if (!result || result.statusCode !== 200) return null;
-  const chunks: Uint8Array[] = [];
-  const reader = result.stream.getReader();
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) chunks.push(value);
-  }
-  const text = new TextDecoder().decode(concat(chunks));
-  return JSON.parse(text) as T;
-}
-
-function concat(chunks: Uint8Array[]): Uint8Array {
-  const total = chunks.reduce((n, c) => n + c.length, 0);
-  const out = new Uint8Array(total);
-  let i = 0;
-  for (const c of chunks) {
-    out.set(c, i);
-    i += c.length;
-  }
-  return out;
-}
-
-async function putPublicJson(pathname: string, value: unknown): Promise<string> {
+async function putJson(pathname: string, value: unknown): Promise<string> {
   const { url } = await put(pathname, JSON.stringify(value, null, 2), {
     access: 'public',
     addRandomSuffix: false,
@@ -82,16 +48,6 @@ async function putPublicJson(pathname: string, value: unknown): Promise<string> 
   return url;
 }
 
-async function putPrivateJson(pathname: string, value: unknown): Promise<void> {
-  await put(pathname, JSON.stringify(value, null, 2), {
-    access: 'private',
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: 'application/json',
-    token: token(),
-  });
-}
-
 /**
  * List all blobs with a given prefix, exhausting pagination. Prefer this
  * over a single list() call for anything that might have >100 entries.
@@ -100,7 +56,9 @@ async function listAll(prefix: string) {
   const results: Awaited<ReturnType<typeof list>>['blobs'] = [];
   let cursor: string | undefined;
   do {
-    const page = await list({ prefix, cursor, token: token() });
+    const page = cursor
+      ? await list({ prefix, cursor, token: token() })
+      : await list({ prefix, token: token() });
     results.push(...page.blobs);
     cursor = page.hasMore ? page.cursor : undefined;
   } while (cursor);
@@ -136,12 +94,12 @@ interface ProductIndex {
 async function readIndex(): Promise<ProductIndex> {
   const blobs = await listAll('products/_index.json');
   if (blobs.length === 0) return { entries: [] };
-  const index = await readPublicJson<ProductIndex>(blobs[0]!.url);
+  const index = await readJson<ProductIndex>(blobs[0]!.url);
   return index ?? { entries: [] };
 }
 
 async function writeIndex(index: ProductIndex): Promise<void> {
-  await putPublicJson('products/_index.json', index);
+  await putJson('products/_index.json', index);
 }
 
 // ─── Vercel Blob storage ──────────────────────────────────────────────
@@ -175,7 +133,7 @@ export class VercelBlobStorage implements CommerceStorage {
   async getProductById(id: string): Promise<Product | null> {
     const blobs = await listAll(`products/${id}.json`);
     if (blobs.length === 0) return null;
-    return readPublicJson<Product>(blobs[0]!.url);
+    return readJson<Product>(blobs[0]!.url);
   }
 
   async upsertProduct(
@@ -194,13 +152,13 @@ export class VercelBlobStorage implements CommerceStorage {
       tags: partial.tags ?? [],
       kind: partial.kind ?? 'physical',
       inventory: partial.inventory ?? null,
-      weight_grams: partial.weight_grams,
+      ...(partial.weight_grams !== undefined ? { weight_grams: partial.weight_grams } : {}),
       published: partial.published ?? false,
       created_at: existing?.created_at ?? now(),
       updated_at: now(),
     };
 
-    await putPublicJson(`products/${product.id}.json`, product);
+    await putJson(`products/${product.id}.json`, product);
 
     const index = await readIndex();
     const existingEntry = index.entries.find((e) => e.id === product.id);
@@ -222,12 +180,11 @@ export class VercelBlobStorage implements CommerceStorage {
   }
 
   async deleteProduct(id: string): Promise<void> {
-    // Soft-delete to preserve order history references.
     const existing = await this.getProductById(id);
     if (!existing) return;
     existing.published = false;
     existing.updated_at = now();
-    await putPublicJson(`products/${id}.json`, existing);
+    await putJson(`products/${id}.json`, existing);
 
     const index = await readIndex();
     const entry = index.entries.find((e) => e.id === id);
@@ -238,14 +195,14 @@ export class VercelBlobStorage implements CommerceStorage {
     }
   }
 
-  // Orders (private blobs — reads via get())
+  // Orders
 
   async listOrders(options: { status?: Order['status'] } = {}): Promise<Order[]> {
     const blobs = await listAll('orders/');
     const results: Order[] = [];
     for (const b of blobs) {
       if (b.pathname.includes('/_by-pi/')) continue;
-      const order = await readPrivateJson<Order>(b.pathname);
+      const order = await readJson<Order>(b.url);
       if (!order) continue;
       if (options.status && order.status !== options.status) continue;
       results.push(order);
@@ -255,11 +212,15 @@ export class VercelBlobStorage implements CommerceStorage {
   }
 
   async getOrderById(id: string): Promise<Order | null> {
-    return readPrivateJson<Order>(`orders/${id}.json`);
+    const blobs = await listAll(`orders/${id}.json`);
+    if (blobs.length === 0) return null;
+    return readJson<Order>(blobs[0]!.url);
   }
 
   async getOrderByPaymentIntent(pi_id: string): Promise<Order | null> {
-    const pointer = await readPrivateJson<{ id: string }>(`orders/_by-pi/${pi_id}.json`);
+    const blobs = await listAll(`orders/_by-pi/${pi_id}.json`);
+    if (blobs.length === 0) return null;
+    const pointer = await readJson<{ id: string }>(blobs[0]!.url);
     if (!pointer) return null;
     return this.getOrderById(pointer.id);
   }
@@ -273,7 +234,9 @@ export class VercelBlobStorage implements CommerceStorage {
       id: existing?.id ?? uuid(),
       stripe_payment_intent_id: partial.stripe_payment_intent_id,
       customer: partial.customer ?? { email: '' },
-      shipping_address: partial.shipping_address ?? existing?.shipping_address,
+      ...((partial.shipping_address ?? existing?.shipping_address)
+        ? { shipping_address: partial.shipping_address ?? existing?.shipping_address! }
+        : {}),
       line_items: partial.line_items ?? existing?.line_items ?? [],
       subtotal_cents: partial.subtotal_cents ?? existing?.subtotal_cents ?? 0,
       shipping_cents: partial.shipping_cents ?? existing?.shipping_cents ?? 0,
@@ -281,23 +244,27 @@ export class VercelBlobStorage implements CommerceStorage {
       total_cents: partial.total_cents ?? existing?.total_cents ?? 0,
       currency: partial.currency ?? existing?.currency ?? 'USD',
       status: partial.status ?? existing?.status ?? 'pending',
-      tracking: partial.tracking ?? existing?.tracking,
+      ...((partial.tracking ?? existing?.tracking)
+        ? { tracking: partial.tracking ?? existing?.tracking! }
+        : {}),
       created_at: existing?.created_at ?? now(),
       updated_at: now(),
     };
 
-    await putPrivateJson(`orders/${order.id}.json`, order);
-    await putPrivateJson(`orders/_by-pi/${order.stripe_payment_intent_id}.json`, {
+    await putJson(`orders/${order.id}.json`, order);
+    await putJson(`orders/_by-pi/${order.stripe_payment_intent_id}.json`, {
       id: order.id,
     });
 
     return order;
   }
 
-  // Carts (private)
+  // Carts
 
   async getCart(id: string): Promise<Cart | null> {
-    return readPrivateJson<Cart>(`carts/${id}.json`);
+    const blobs = await listAll(`carts/${id}.json`);
+    if (blobs.length === 0) return null;
+    return readJson<Cart>(blobs[0]!.url);
   }
 
   async createCart(): Promise<Cart> {
@@ -308,13 +275,13 @@ export class VercelBlobStorage implements CommerceStorage {
       currency: 'USD',
       updated_at: now(),
     };
-    await putPrivateJson(`carts/${cart.id}.json`, cart);
+    await putJson(`carts/${cart.id}.json`, cart);
     return cart;
   }
 
   async updateCart(cart: Cart): Promise<Cart> {
     const updated: Cart = { ...cart, updated_at: now() };
-    await putPrivateJson(`carts/${updated.id}.json`, updated);
+    await putJson(`carts/${updated.id}.json`, updated);
     return updated;
   }
 

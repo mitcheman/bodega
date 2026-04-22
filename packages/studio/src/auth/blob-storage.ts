@@ -1,11 +1,13 @@
 // Vercel Blob implementation of MagicLinkStorage.
 //
 // Layout:
-//   magic-links/{token}.json   — each record (private)
+//   magic-links/{token}.json   — each record (access: 'public', but
+//                                 path includes a 32-byte random token
+//                                 so URLs are unguessable)
 //
-// Records are consume-once: the first successful verify wipes the blob.
+// Records are consume-once: the first successful verify deletes the blob.
 
-import { put, get, del, list } from '@vercel/blob';
+import { put, del, list } from '@vercel/blob';
 import type { MagicLinkStorage, MagicLinkRecord } from './magic-link.js';
 
 function token(): string {
@@ -14,31 +16,38 @@ function token(): string {
   return t;
 }
 
-async function readPrivate(pathname: string): Promise<MagicLinkRecord | null> {
-  const result = await get(pathname, { access: 'private', token: token() });
-  if (!result || result.statusCode !== 200) return null;
-  const chunks: Uint8Array[] = [];
-  const reader = result.stream.getReader();
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) chunks.push(value);
-  }
-  const total = chunks.reduce((n, c) => n + c.length, 0);
-  const out = new Uint8Array(total);
-  let i = 0;
-  for (const c of chunks) {
-    out.set(c, i);
-    i += c.length;
-  }
-  return JSON.parse(new TextDecoder().decode(out)) as MagicLinkRecord;
+async function readJson<T>(url: string): Promise<T | null> {
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) return null;
+  return (await res.json()) as T;
+}
+
+async function readRecord(pathname: string): Promise<{ record: MagicLinkRecord; url: string } | null> {
+  const blobs = await listAll(pathname);
+  if (blobs.length === 0) return null;
+  const url = blobs[0]!.url;
+  const record = await readJson<MagicLinkRecord>(url);
+  if (!record) return null;
+  return { record, url };
+}
+
+async function listAll(prefix: string) {
+  const results: Awaited<ReturnType<typeof list>>['blobs'] = [];
+  let cursor: string | undefined;
+  do {
+    const page = cursor
+      ? await list({ prefix, cursor, token: token() })
+      : await list({ prefix, token: token() });
+    results.push(...page.blobs);
+    cursor = page.hasMore ? page.cursor : undefined;
+  } while (cursor);
+  return results;
 }
 
 export class VercelBlobMagicLinkStorage implements MagicLinkStorage {
   async put(record: MagicLinkRecord): Promise<void> {
     await put(`magic-links/${record.token}.json`, JSON.stringify(record), {
-      access: 'private',
+      access: 'public',
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: 'application/json',
@@ -53,55 +62,38 @@ export class VercelBlobMagicLinkStorage implements MagicLinkStorage {
    * two requests race, the second finds the record already gone.
    */
   async consume(tokenStr: string): Promise<MagicLinkRecord> {
-    const record = await readPrivate(`magic-links/${tokenStr}.json`);
-    if (!record) {
+    const found = await readRecord(`magic-links/${tokenStr}.json`);
+    if (!found) {
       throw new Error('Invalid or already-used login link.');
     }
+    const { record, url } = found;
     if (record.consumed_at) {
       throw new Error('This login link has already been used.');
     }
     if (new Date(record.expires_at).getTime() < Date.now()) {
-      // Clean up expired record.
-      await this.deleteByToken(tokenStr);
+      await del(url, { token: token() });
       throw new Error('This login link has expired. Ask for a new one.');
     }
 
     // Delete first, so a replay gets "already used" (not "valid").
-    await this.deleteByToken(tokenStr);
+    await del(url, { token: token() });
 
     return { ...record, consumed_at: new Date().toISOString() };
   }
 
   async purgeExpired(): Promise<number> {
-    const blobs: Array<{ pathname: string; url: string }> = [];
-    let cursor: string | undefined;
-    do {
-      const page = await list({
-        prefix: 'magic-links/',
-        cursor,
-        token: token(),
-      });
-      blobs.push(...page.blobs);
-      cursor = page.hasMore ? page.cursor : undefined;
-    } while (cursor);
-
+    const blobs = await listAll('magic-links/');
     let removed = 0;
     const now = Date.now();
     for (const b of blobs) {
-      const tokenFromPath = b.pathname.replace(/^magic-links\//, '').replace(/\.json$/, '');
-      const record = await readPrivate(b.pathname);
+      const record = await readJson<MagicLinkRecord>(b.url);
       if (!record) continue;
       if (record.consumed_at || new Date(record.expires_at).getTime() < now) {
-        await this.deleteByToken(tokenFromPath);
+        await del(b.url, { token: token() });
         removed++;
       }
     }
     return removed;
-  }
-
-  private async deleteByToken(tokenStr: string): Promise<void> {
-    // del() accepts pathname directly in current API.
-    await del(`magic-links/${tokenStr}.json`, { token: token() });
   }
 }
 

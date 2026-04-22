@@ -1,6 +1,6 @@
 // Public entry point for @bodega/commerce.
 
-// Domain types
+// Domain types (renamed Cart → CartState to avoid collision with <Cart> component)
 export type {
   Product,
   ProductKind,
@@ -8,7 +8,7 @@ export type {
   OrderLineItem,
   OrderStatus,
   Address,
-  Cart,
+  Cart as CartState,
   CartItem,
   BodegaConfig,
   SetupState,
