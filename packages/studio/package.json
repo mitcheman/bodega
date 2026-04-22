@@ -1,13 +1,18 @@
 {
   "name": "@bodega/studio",
   "version": "0.0.1",
-  "description": "Merchant-facing admin UI for Bodega stores. Mountable at /studio with magic-link auth. Phone-first. Currently: auth primitives (UI components in progress).",
+  "description": "Merchant-facing admin UI for Bodega stores. Mountable at /studio with magic-link auth. Phone-first.",
   "license": "Apache-2.0",
   "private": true,
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./auth": "./src/auth/magic-link.ts",
+    "./auth/session": "./src/auth/session.ts",
+    "./routes/auth-login": "./src/routes/auth-login.ts",
+    "./routes/auth-verify": "./src/routes/auth-verify.ts",
+    "./routes/auth-magic-link": "./src/routes/auth-magic-link.ts"
   },
   "files": [
     "src/",
@@ -16,10 +21,12 @@
   ],
   "peerDependencies": {
     "react": ">=18",
-    "react-dom": ">=18"
+    "react-dom": ">=18",
+    "next": ">=15"
   },
   "dependencies": {
     "@bodega/commerce": "workspace:*",
+    "@vercel/blob": "^1.0.0",
     "resend": "^4.0.0"
   },
   "devDependencies": {

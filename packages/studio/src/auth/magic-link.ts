@@ -1,14 +1,15 @@
-// Magic-link auth for /studio. Server-only functions.
+// Magic-link auth for /studio. Server-only.
 //
 // Flow:
-//   1. Operator runs bodega-admin → we call createMagicLink(email, role)
-//   2. We return a one-time token; caller emails a URL containing it
-//   3. Merchant clicks the link → GET /studio/login?token=...
-//   4. Server calls verifyMagicLink(token) → returns the session payload
-//   5. Session cookie set; token is invalidated
+//   1. Merchant enters email on /studio/login → POST /api/bodega/auth/login
+//   2. Handler calls createMagicLink(email) → record stored, url emailed
+//   3. Merchant clicks the emailed link → GET /studio/verify?token=...
+//   4. Handler calls verifyMagicLink(token) → returns session payload
+//   5. Session cookie issued (see session.ts); merchant lands in /studio
 //
-// The token is stored alongside the expiry and role in storage (Vercel
-// Blob in Phase 1). One-time-use: first verify wins; subsequent calls fail.
+// One-time use: verify atomically consumes the record before returning.
+
+import { randomBytes } from 'node:crypto';
 
 export type StudioRole = 'owner' | 'manager' | 'product-editor' | 'packer';
 
@@ -20,11 +21,12 @@ export interface MagicLinkOptions {
 }
 
 export interface MagicLinkRecord {
-  token: string; // 32-byte random, base64url
+  /** URL-safe token, 32 bytes of entropy. */
+  token: string;
   email: string;
   role: StudioRole;
-  created_at: string; // ISO 8601
-  expires_at: string; // ISO 8601
+  created_at: string;
+  expires_at: string;
   consumed_at: string | null;
 }
 
@@ -34,40 +36,61 @@ export interface Session {
   issued_at: string;
 }
 
-/**
- * Create a new magic-link record. Caller is responsible for emailing
- * the URL (our `admin` skill uses Resend via the shared sending domain).
- *
- * @returns The record, including the token. Store this server-side;
- *   the email body embeds only the token (in a URL).
- */
-export async function createMagicLink(
-  _opts: MagicLinkOptions,
-  _storage: MagicLinkStorage,
-): Promise<MagicLinkRecord> {
-  // Implementation lands in the components pass.
-  throw new Error('createMagicLink not implemented yet');
-}
-
-/**
- * Verify a token. Returns the session payload if valid; throws if
- * expired, consumed, or unknown.
- *
- * This function MUST mark the record as consumed atomically to prevent
- * replay. The storage layer's consume-or-fail semantics are assumed.
- */
-export async function verifyMagicLink(
-  _token: string,
-  _storage: MagicLinkStorage,
-): Promise<Session> {
-  throw new Error('verifyMagicLink not implemented yet');
-}
-
-/** Storage interface for magic-link records. Implemented by Vercel Blob. */
+/** Storage interface — implementation in blob-storage.ts. */
 export interface MagicLinkStorage {
   put(record: MagicLinkRecord): Promise<void>;
   /** Consume-or-fail: returns the record iff it existed and was unused. */
   consume(token: string): Promise<MagicLinkRecord>;
-  /** For cleanup: delete expired records. */
+  /** Cleanup: delete expired records. */
   purgeExpired(): Promise<number>;
+}
+
+const DEFAULT_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
+
+/**
+ * Create a new magic-link record. Returns the token — caller emails the
+ * URL containing it. Store it first (via storage.put) so verify works.
+ *
+ * The URL the user receives looks like:
+ *   https://<store>/studio/verify?token=<record.token>
+ */
+export async function createMagicLink(
+  opts: MagicLinkOptions,
+  storage: MagicLinkStorage,
+): Promise<MagicLinkRecord> {
+  const email = opts.email.trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error('A valid email is required.');
+  }
+
+  const now = Date.now();
+  const ttl = opts.ttl_ms ?? DEFAULT_TTL_MS;
+
+  const record: MagicLinkRecord = {
+    token: randomBytes(32).toString('base64url'),
+    email,
+    role: opts.role,
+    created_at: new Date(now).toISOString(),
+    expires_at: new Date(now + ttl).toISOString(),
+    consumed_at: null,
+  };
+
+  await storage.put(record);
+  return record;
+}
+
+/**
+ * Verify a token. Returns the session payload if valid; throws on any
+ * failure (unknown, expired, already consumed). Atomically consumes.
+ */
+export async function verifyMagicLink(
+  token: string,
+  storage: MagicLinkStorage,
+): Promise<Session> {
+  const record = await storage.consume(token);
+  return {
+    email: record.email,
+    role: record.role,
+    issued_at: record.consumed_at ?? new Date().toISOString(),
+  };
 }
