@@ -40,7 +40,7 @@ Use the `welcome-email.md` template at
 - `{operator_support}` → default bodega support email; agency users
   (e.g., freelancers) can override with their own.
 
-Send via our shared Resend sending domain (`orders@bodega.email`).
+Send via our shared Resend sending domain (`orders@bodega.my`).
 Record in `.bodega.md`:
 
 ```yaml

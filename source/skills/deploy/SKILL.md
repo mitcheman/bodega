@@ -119,7 +119,7 @@ vercel env add BODEGA_MERCHANT_EMAIL production <<< "<merchant.email>"
 
 # Sending domain — defaults to our shared one until the merchant
 # verifies their own domain with Resend
-vercel env add BODEGA_FROM_EMAIL production <<< "orders@bodega.email"
+vercel env add BODEGA_FROM_EMAIL production <<< "orders@bodega.my"
 ```
 
 For `RESEND_API_KEY`, ask the user:

@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
   const origin = new URL(req.url).origin;
   const verifyUrl = `${origin}/studio/verify?token=${record.token}`;
   const storeName = process.env.BODEGA_STORE_NAME ?? 'your store';
-  const fromAddress = process.env.BODEGA_FROM_EMAIL ?? 'orders@bodega.email';
+  const fromAddress = process.env.BODEGA_FROM_EMAIL ?? 'orders@bodega.my';
 
   const html =
     body?.html ??

@@ -15,7 +15,7 @@ import { getMagicLinkStorage } from '../auth/blob-storage.js';
 
 const MERCHANT_EMAIL = () => process.env.BODEGA_MERCHANT_EMAIL?.toLowerCase();
 const FROM_ADDRESS = () =>
-  process.env.BODEGA_FROM_EMAIL ?? 'orders@bodega.email';
+  process.env.BODEGA_FROM_EMAIL ?? 'orders@bodega.my';
 const STORE_NAME = () => process.env.BODEGA_STORE_NAME ?? 'your store';
 
 let resendClient: Resend | null = null;

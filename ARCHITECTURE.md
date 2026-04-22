@@ -60,15 +60,15 @@ Customer storage = Vercel Blob on the customer's Vercel project. Stripe = custom
 | Customer site + admin + API + data | Customer's Vercel | Customer |
 | Customer's Stripe account + keys | Stripe + customer's Vercel env | Customer |
 | Customer's domain | Customer's registrar | Customer |
-| `bodega.studio` landing page (future) | Your Vercel | You |
+| `bodega.my` landing page (future) | Your Vercel | You |
 | Plugin + scripts | Your laptop (via Claude Code) | You |
 
 ---
 
 ## What's NOT in the architecture right now (deliberately)
 
-- **Central bodega.studio rendering of customer sites.** If/when customer juggling becomes painful (trigger: form hits from ads + 3+ customer Vercels hurting), a focused weekend adds hostname middleware + shared hosting. Not now.
-- **Central tenant admin on bodega.studio.** Each customer's admin lives at their own `/studio`. Future concern, same trigger.
+- **Central bodega.my rendering of customer sites.** If/when customer juggling becomes painful (trigger: form hits from ads + 3+ customer Vercels hurting), a focused weekend adds hostname middleware + shared hosting. Not now.
+- **Central tenant admin on bodega.my.** Each customer's admin lives at their own `/studio`. Future concern, same trigger.
 - **Stripe Connect platform.** Customers are direct merchants on Stripe. You're not holding money. Keeps legal/compliance simple.
 - **Self-service signup.** You onboard customers manually. Concierge only.
 
@@ -89,7 +89,7 @@ Customer storage = Vercel Blob on the customer's Vercel project. Stripe = custom
 - **Auth**: HMAC-signed session cookies (no JWT library). 30-day TTL. Magic-link only, no passwords.
 - **Storage**: Vercel Blob. Products + orders + carts stored as JSON keyed by id. Customers' Stripe secret keys in Vercel env, not in storage.
 - **Stripe flow**: deferred PaymentIntent — client `elements.submit()` → server creates PI from current cart → confirmPayment. Webhook creates Order.
-- **Email**: Resend, sent from the customer's domain (with DNS TXT) or our shared `orders@bodega.email` (default).
+- **Email**: Resend, sent from the customer's domain (with DNS TXT) or our shared `orders@bodega.my` (default).
 - **Multi-IDE**: plugin source in `source/skills/`, builds to `.claude/`, `.cursor/`, `.codex/`, and 5 others via `scripts/build.js`.
 
 ---
