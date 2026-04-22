@@ -17,13 +17,11 @@ export {
 } from './auth/blob-storage.js';
 
 export { issueSession, getSession, endSession } from './auth/session.js';
+export { requireSession, requireOwner } from './auth/require-session.js';
 
-// Route helpers — imported directly via ./routes/* subpath exports.
-// See package.json "exports" for the full list.
-
-// Components — coming in the next commit:
-// export { StudioLayout } from './components/StudioLayout.js';
-// export { StudioHome } from './components/StudioHome.js';
-// export { LoginPage } from './components/LoginPage.js';
-// export { ProductList, ProductEditor } from './components/ProductList.js';
-// export { OrderList, OrderDetail } from './components/OrderList.js';
+// Components
+export { default as StudioLayout } from './components/StudioLayout.js';
+export { LoginPage } from './components/LoginPage.js';
+export { StudioHome } from './components/StudioHome.js';
+export { ProductsPage } from './components/ProductsPage.js';
+export { ProductEditor } from './components/ProductEditor.js';

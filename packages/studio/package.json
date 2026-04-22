@@ -12,7 +12,9 @@
     "./auth/session": "./src/auth/session.ts",
     "./routes/auth-login": "./src/routes/auth-login.ts",
     "./routes/auth-verify": "./src/routes/auth-verify.ts",
-    "./routes/auth-magic-link": "./src/routes/auth-magic-link.ts"
+    "./routes/auth-logout": "./src/routes/auth-logout.ts",
+    "./routes/auth-magic-link": "./src/routes/auth-magic-link.ts",
+    "./routes/products": "./src/routes/products.ts"
   },
   "files": [
     "src/",
