@@ -1,0 +1,33 @@
+{
+  "name": "@bodega/commerce",
+  "version": "0.0.1",
+  "description": "Commerce components for Bodega stores. Framework-agnostic React library: <ProductGrid>, <ProductPage>, <Cart>, <Checkout>. Themeable via CSS custom properties.",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "dependencies": {
+    "@stripe/stripe-js": "^4.0.0"
+  },
+  "scripts": {
+    "build": "echo 'build not yet implemented'",
+    "typecheck": "echo 'typecheck not yet implemented'",
+    "lint": "echo 'lint not yet implemented'"
+  }
+}

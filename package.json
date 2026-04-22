@@ -1,0 +1,40 @@
+{
+  "name": "bodega",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Bodega — turn any Claude-built Next.js site into a working store. Multi-harness plugin (Claude Code, Cursor, Codex, Gemini, etc.) compiled from canonical sources.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "packageManager": "pnpm@9.0.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "bin": {
+    "bodega": "./bin/cli.js"
+  },
+  "scripts": {
+    "build": "node scripts/build.js",
+    "build:sdks": "pnpm -r build",
+    "build:all": "pnpm build && pnpm build:sdks",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "prepack": "pnpm build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "bodega",
+    "commerce",
+    "storefront",
+    "stripe",
+    "vercel",
+    "nextjs",
+    "claude-code",
+    "cursor",
+    "codex",
+    "gemini",
+    "ai-coding",
+    "plugin"
+  ]
+}

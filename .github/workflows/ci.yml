@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build-in-sync:
+    name: Source and outputs in sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Run build
+        run: pnpm build
+
+      - name: Verify build output is committed
+        run: |
+          if ! git diff --exit-code --quiet; then
+            echo ""
+            echo "❌ Build output is out of sync with source/skills/."
+            echo ""
+            echo "The generated trees (.claude/, .cursor/, .codex/, etc.) are"
+            echo "committed to git on purpose — see .gitignore for why."
+            echo ""
+            echo "To fix:"
+            echo "  1. Run 'pnpm build' locally"
+            echo "  2. Commit the resulting changes"
+            echo "  3. Push again"
+            echo ""
+            echo "Files with drift:"
+            git --no-pager diff --stat
+            exit 1
+          fi
+
+  typecheck-sdks:
+    name: SDK typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck SDK packages
+        run: pnpm typecheck
+
+  validate-skill-frontmatter:
+    name: Validate skill frontmatter
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check every source SKILL.md has name + description
+        run: |
+          fail=0
+          for f in source/skills/*/SKILL.md; do
+            if ! grep -q "^name:" "$f"; then
+              echo "❌ $f is missing 'name:' in frontmatter"
+              fail=1
+            fi
+            if ! grep -q "^description:" "$f"; then
+              echo "❌ $f is missing 'description:' in frontmatter"
+              fail=1
+            fi
+          done
+          if [ $fail -eq 1 ]; then
+            exit 1
+          fi
+          echo "✓ All skills have required frontmatter"
