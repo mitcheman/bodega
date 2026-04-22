@@ -5,7 +5,7 @@
 <h1 align="center">Bodega</h1>
 
 <p align="center">
-  <em>A Claude Code plugin for people building online stores for people who aren't going to touch the code.</em>
+  <em>A Claude Code plugin that builds online stores for makers who won't touch the code.</em>
 </p>
 
 <p align="center">
@@ -28,134 +28,94 @@ a client.
 
 ## Who it's for
 
-- **You know your way around a terminal.** Your partner/spouse/client/
-  friend doesn't. You're the one opening Claude Code, not them.
-- **They make something** — pottery, prints, jewelry, zines, digital art.
-  Physical or digital goods. Not running a marketplace, not scaling to
-  millions of SKUs.
-- **You care how the site looks.** Bodega isn't a template. It layers
-  commerce onto whatever Claude built for you — your colors, your
-  fonts, your voice.
-- **You want them to actually use it.** The `/studio` admin is
-  phone-first: four taps to add a product, three taps to ship an order.
+You're the one with the terminal open. They're the one with the bowls,
+prints, necklaces, zines, or whatever they make. They want a real
+shop — their own URL, their own Stripe, something that looks like
+theirs — not an Etsy listing and not a Squarespace template. You want
+to build it without spending a weekend wiring up Stripe, shipping, and
+an admin UI from scratch.
 
-**NOT for you if:** you're running a large e-commerce operation
-(Shopify fits better), you want a template library (Squarespace/Wix),
-or you want a self-service SaaS signup flow (Bodega is a plugin — you're
-the operator).
+Not a fit if you're running a big e-commerce operation (Shopify handles
+that better) or if you want a point-and-click site builder (Squarespace,
+Wix). Bodega is a plugin — you're driving.
 
-## What Bodega gives you
+## What you get
 
 ```
 claude › /bodega:setup
 ```
 
-Fifteen minutes later, the site is live on the internet:
+Fifteen minutes later:
 
-- **Storefront** — `/shop`, `/cart`, `/checkout` — themed to the
-  existing design, not a generic template.
-- **Phone-first admin** at `/studio` — add products, see orders, print
-  shipping labels, mark shipped. No code.
-- **Payments** via Stripe — the merchant's own account, their bank
-  gets the money, Bodega never touches a card number.
-- **Deploy** to Vercel (their free Hobby tier for small stores).
-- **Optional**: custom domain, private GitHub backup.
+- `/shop`, `/cart`, `/checkout` — themed to the existing design, not a template.
+- `/studio` admin — phone-first. Add products, see orders, print shipping labels, mark shipped.
+- Stripe payments — merchant's own account. Their bank gets the money.
+- Deployed to Vercel.
+- Optional: custom domain, GitHub backup.
 
 ## The tech stack
 
-Bodega's output is a standard Next.js app. Nothing proprietary,
-nothing locked in:
+A standard Next.js app. Nothing proprietary.
 
 | Layer | Tool |
 |---|---|
 | Framework | Next.js 16 (App Router), React 19, TypeScript, Tailwind v4 |
-| Payments | [Stripe](https://stripe.com) Payment Element (merchant's own account) |
+| Payments | [Stripe](https://stripe.com) Payment Element (merchant's account) |
 | Product + order storage | [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) |
-| Transactional email | [Resend](https://resend.com) for magic links + receipts |
-| Merchant auth | HMAC-signed session cookies + magic links (no passwords) |
-| Hosting | [Vercel](https://vercel.com) (merchant's own account) |
-| Domain (optional) | [Cloudflare Registrar](https://www.cloudflare.com/products/registrar/) at wholesale |
-| Backup (optional) | GitHub (private repo) |
-| Design scaffolding (greenfield) | [impeccable](https://impeccable.style) |
+| Transactional email | [Resend](https://resend.com) |
+| Merchant auth | HMAC-signed cookies + magic links |
+| Hosting | [Vercel](https://vercel.com) (merchant's account) |
+| Domain (optional) | [Cloudflare Registrar](https://www.cloudflare.com/products/registrar/) |
+| Backup (optional) | GitHub |
+| Greenfield design | [impeccable](https://impeccable.style) |
 
-Everything here is industry-standard. You can uninstall Bodega and keep
-the site running forever. See [ARCHITECTURE.md](./ARCHITECTURE.md) for
-the full layout.
+Uninstall Bodega tomorrow and the site keeps running. Details in
+[ARCHITECTURE.md](./ARCHITECTURE.md).
 
-## What Bodega handles vs what you (or the merchant) handle
+## Who handles what
 
-Clear split so nothing's ambiguous:
-
-| **Bodega handles (automatically, via the plugin)** | **You handle** | **The merchant handles** |
-|---|---|---|
-| Scaffolding `/shop`, `/cart`, `/checkout`, `/studio` routes | Running `/bodega:setup` | — |
-| Wiring Stripe Elements into `/checkout` | Pasting their Stripe API keys | Stripe KYC (legal name, bank, tax ID) |
-| Magic-link auth implementation | Telling it who the merchant is | Clicking the login link in their email |
-| Provisioning Vercel Blob storage | Clicking the Vercel login link | — |
-| Registering the Stripe webhook | — | — |
-| Buying a custom domain via Cloudflare | Optional: answering "yes I want a custom domain" | Optional: paying ~$12/yr |
-| Sending the welcome email | — | Checking their inbox |
-| Setting up a GitHub backup (optional) | Optional: clicking the GitHub login | — |
-| Auto-pushing backup on every deploy | — | — |
-
-**Your setup effort**: ~15 minutes of questions and two sign-in clicks.
-**The merchant's one-time effort**: ~10 minutes of Stripe KYC. After
-that, they only touch `/studio` when they want to add a product or ship
-an order.
+| What | Who |
+|---|---|
+| Scaffolding routes, wiring Stripe, magic-link auth, Vercel Blob, webhooks | Bodega |
+| Running `/bodega:setup`, pasting Stripe keys, clicking sign-ins | You (~15 min) |
+| Stripe KYC, logging into `/studio` to add products and ship orders | The merchant |
 
 ## Requirements
 
-Before `/bodega:setup`, the machine needs:
+- Node.js 20+
+- A package manager (npm, pnpm, yarn, bun)
+- A Vercel account (free to open)
+- A Stripe account (free to open, ~10 min KYC)
+- Optional: a domain, a GitHub account for backup
 
-- **Node.js 20+**
-- **A package manager** — npm, pnpm, yarn, or bun
+Run `/bodega:doctor` to check.
 
-You'll sign in to (but not pre-create) a **Vercel account** and a
-**Stripe account** (free to open; merchant-side KYC required).
+## Costs
 
-**Not required:** GitHub account (only for optional backup), Next.js
-knowledge, or code editing.
+Bodega itself is free. The services it uses cost what they cost.
 
-Run `/bodega:doctor` any time to check your environment.
+**Required for a real commercial store:**
 
-## Costs (honest breakdown)
-
-Bodega itself is free (Apache 2.0). The real monthly costs are the
-services it uses on the merchant's behalf. Not hidden, not subsidized.
-
-**Required to run a real commercial store:**
-
-| Service | Cost | Why |
-|---|---|---|
-| **Vercel Pro** | **$20/mo per user** | Vercel's free Hobby tier is explicitly *non-commercial use only* (per their Fair Use Guidelines). A live store that takes real money needs Pro. This covers hosting, SSL, Blob storage, and analytics. |
-| **Stripe transaction fees** | 2.9% + $0.30 per US card | No monthly fee. Paid out of each sale. International / cross-border slightly higher. |
+| Service | Cost |
+|---|---|
+| Vercel Pro | $20/mo per user — Vercel's free Hobby tier is non-commercial use only, per their Fair Use Guidelines |
+| Stripe | 2.9% + 30¢ per US card, no monthly fee |
 
 **Optional:**
 
-| Service | Cost | Why |
-|---|---|---|
-| Custom domain (Cloudflare Registrar at wholesale) | ~$12/yr | If you skip, the site stays at `<slug>.vercel.app` — ugly but free. |
-| Resend transactional email | Free for 3k emails/mo, $20/mo above | Magic-link logins, order receipts, shipping confirmations. Free tier covers most small stores. |
-| Shippo for shipping labels | Pay-per-label (~carrier cost + $0.05-0.10) | No monthly fee. Skip it entirely and merchants print via USPS Click-N-Ship. |
-| Stripe Tax (auto sales-tax) | 0.4% of applicable transactions | Optional. Small stores can handle tax manually until they cross state nexus thresholds. |
-| GitHub (private repo for code backup) | Free | Optional, enabled via `/bodega:backup`. |
+| Service | Cost |
+|---|---|
+| Custom domain | ~$12/yr |
+| Resend email | Free for 3k emails/mo |
+| Shippo labels | Pay per label, no monthly fee |
+| Stripe Tax | 0.4% per transaction |
+| GitHub backup | Free |
 
-**Small-store example** (muddmann-scale: ~20 orders/mo, ~$1k GMV):
-- Vercel Pro: $20/mo
-- Stripe: ~$32/mo (2.9% + 30¢ × 20)
-- Resend: $0 (free tier)
-- Domain: ~$1/mo amortized
-- **Total: ~$53/mo + 3% of revenue**
+At ~20 orders/mo and ~$1k GMV: roughly **$53/mo all-in**. Shopify Basic
+at the same volume is ~$71. Big Cartel is ~$15–30 but template-locked.
 
-For comparison at that volume: **Shopify Basic** ($39/mo + 2.9% + $0.30) = ~$71/mo. **Squarespace Commerce** ($27-49/mo + 0% fees) = ~$27-49/mo. **Big Cartel** ($15-30/mo + 0% fees) = ~$15-30/mo (but capped product counts + template-only).
-
-Bodega sits mid-pack on *cost*. The value is the custom design — the
-merchant's site looks like *their* shop, not a template.
-
-**During setup / development** (before real commerce): Hobby tier is
-fine. You can scaffold, deploy, and test in Stripe's test mode on
-Vercel Hobby without violating their terms. The commercial restriction
-only kicks in when real money starts flowing.
+During setup and testing (Stripe test mode, no real money): Hobby is
+fine. Upgrade to Pro when you go live.
 
 ## Install
 
@@ -163,20 +123,16 @@ only kicks in when real money starts flowing.
 npx skills add mitcheman/bodega
 ```
 
-Pin to a specific version:
+Pin a version:
 
 ```
 npx skills add mitcheman/bodega@v0.1.0
 ```
 
-Pairs with [impeccable](https://impeccable.style) for design. If you're
-starting from an empty folder, Bodega will offer to install impeccable
-for you.
+Pairs with [impeccable](https://impeccable.style) for design — Bodega
+offers to install it when you start from an empty folder.
 
-*(Once Bodega lands in Anthropic's official plugin registry,
-`/plugin install bodega` will also work. Not there yet.)*
-
-## The ~15-minute run
+## Running it
 
 From an existing Claude-built site:
 
@@ -186,11 +142,7 @@ claude
 › /bodega:setup
 ```
 
-Answer a few questions, click the Vercel sign-in link, forward the
-Stripe signup link to the merchant (if that's a different person), and
-the store is live.
-
-From an empty folder, add a design pass first:
+From an empty folder (scaffolds the site first via impeccable):
 
 ```
 mkdir my-shop && cd my-shop
@@ -198,34 +150,23 @@ claude
 › /bodega:setup
 ```
 
-Expect ~45 min the first time — most of it Claude + impeccable doing
-the design work. Subsequent stores go faster.
-
-## The four promises
-
-1. **The site is theirs.** Uninstall Bodega tomorrow and it still works.
-   Their code, their domain, their Stripe, their money.
-2. **No vendor lock-in.** Stripe is Stripe. Vercel is Vercel. We don't
-   wrap them in proprietary layers.
-3. **Non-technical-first, developer-second.** Default voice is plain
-   English. Pick "developer mode" on first run and we switch.
-4. **Composable, not competing.** We do commerce. Impeccable does
-   design. Vercel does infrastructure. Bodega sits on top, not against.
+`/bodega:setup` asks one question up front: do you want it to talk to
+you like a developer, or plain English. Default is plain English.
+Expect ~15 min on an existing project, ~45 min on a greenfield one
+(most of that is design).
 
 ## Versioning
 
-- **Pre-1.0**: minor versions may introduce breaking changes. Read
-  [CHANGELOG.md](./CHANGELOG.md) before upgrading.
-- **Pin a version**: `npx skills add mitcheman/bodega@v0.1.0`.
-- **Tagged releases** publish `@bodega/commerce` and `@bodega/studio`
-  to npm at the same version.
+Pre-1.0, so minor versions may break things. Pin a tag if you care:
+`npx skills add mitcheman/bodega@v0.1.0`. Tagged releases publish
+`@bodega/commerce` and `@bodega/studio` to npm at the same version.
+See [CHANGELOG.md](./CHANGELOG.md).
 
 ## License
 
-Apache 2.0. See [LICENSE](./LICENSE). Fork freely.
+Apache 2.0. Fork freely.
 
 ## Status
 
-Solo-maintainer project, pre-alpha. I'm not actively reviewing PRs —
-fork it if you want something different. If you ship a live store with
-this, I'd love to see it — open an issue.
+Solo-maintainer, pre-alpha. Not actively reviewing PRs. If you ship a
+live store with this, I'd love to see it — open an issue.
