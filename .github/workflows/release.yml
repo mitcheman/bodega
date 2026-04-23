@@ -1,13 +1,11 @@
 name: Release
 
 # Triggered by pushing a version tag (e.g. `git tag v0.2.0 && git push origin v0.2.0`).
-# Publishes both SDK packages to npm and creates a GitHub Release with notes
-# from CHANGELOG.md.
+# Creates a GitHub Release always; publishes both SDK packages to npm if
+# NPM_TOKEN is set.
 #
-# Required secret:
-#   NPM_TOKEN — an automation token from https://www.npmjs.com/settings/<user>/tokens
-#
-# Add via: gh secret set NPM_TOKEN
+# To enable npm publishing:
+#   gh secret set NPM_TOKEN   (paste an automation token from npmjs.com)
 
 on:
   push:
@@ -15,7 +13,7 @@ on:
       - 'v*.*.*'
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -57,16 +55,6 @@ jobs:
       - name: Build SDK packages
         run: pnpm -r build
 
-      - name: Publish @bodega/commerce to npm
-        run: pnpm --filter "@bodega/commerce" publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @bodega/studio to npm
-        run: pnpm --filter "@bodega/studio" publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Extract release notes from CHANGELOG
         id: notes
         run: |
@@ -85,3 +73,25 @@ jobs:
           body: ${{ steps.notes.outputs.notes }}
           draft: false
           prerelease: ${{ startsWith(github.ref, 'refs/tags/v0.') }}
+
+      - name: Publish @bodega/commerce to npm
+        if: ${{ env.NPM_TOKEN_IS_SET == 'true' }}
+        run: pnpm --filter "@bodega/commerce" publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN_IS_SET: ${{ secrets.NPM_TOKEN != '' }}
+
+      - name: Publish @bodega/studio to npm
+        if: ${{ env.NPM_TOKEN_IS_SET == 'true' }}
+        run: pnpm --filter "@bodega/studio" publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN_IS_SET: ${{ secrets.NPM_TOKEN != '' }}
+
+      - name: npm publish skipped (no NPM_TOKEN)
+        if: ${{ env.NPM_TOKEN_IS_SET != 'true' }}
+        run: |
+          echo "::warning::NPM_TOKEN secret not set. GitHub release created; npm publish skipped."
+          echo "Set it with: gh secret set NPM_TOKEN"
+        env:
+          NPM_TOKEN_IS_SET: ${{ secrets.NPM_TOKEN != '' }}
