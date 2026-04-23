@@ -28,12 +28,15 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Setup Node with npm registry
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
-          registry-url: 'https://registry.npmjs.org'
+        # Intentionally NO registry-url — it sets a placeholder
+        # NODE_AUTH_TOKEN that breaks npm's Trusted Publishing OIDC flow.
+        # With Trusted Publisher configured on npm, `npm publish
+        # --provenance` handles auth via OIDC on its own.
 
       - name: Install
         run: pnpm install --frozen-lockfile
