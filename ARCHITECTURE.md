@@ -9,7 +9,7 @@
 Two things:
 
 1. **Plugin** (`source/skills/` + `scripts/` + `bin/`) — your internal bootstrap tool. Installs into Claude Code locally. Walks through `setup → hosting → payments → deploy → admin → domain → backup`. Scaffolds a full working Next.js app into a customer's project.
-2. **`@mitcheman/bodega`** (`packages/bodega/`) — single SDK with everything: types, theme resolver, Vercel Blob storage, storefront components (`ProductGrid`, `ProductPage`, `Cart`, `Checkout`, `AddToCartButton`), admin components (`StudioLayout`, `StudioHome`, `ProductsPage`, `ProductEditor`, `OrdersPage`, `OrderDetail`, `MarkShippedButton`, `LoginPage`), magic-link auth + session cookies, and Next.js route handlers (`cart`, `cart-items`, `checkout`, `stripe-webhook`, `auth-login`, `auth-verify`, `auth-logout`, `auth-magic-link`, `products`, `orders`).
+2. **`@mitcheman/bodega`** (`packages/bodega/`) — single SDK with everything: types, theme resolver, Vercel Blob storage, storefront components (`ProductGrid`, `ProductCard`, `ProductPage`, `Cart`, `Checkout`, `AddToCartButton`), admin components (`StudioLayout`, `StudioHome`, `ProductsPage`, `ProductEditor`, `OrdersPage`, `OrderDetail`, `MarkShippedButton`, `LoginPage`), magic-link auth + session cookies, and Next.js route handlers (`cart`, `cart-items`, `checkout`, `stripe-webhook`, `auth-login`, `auth-verify`, `auth-logout`, `auth-magic-link`, `products`, `orders`, `upload`).
 
 ---
 
@@ -42,6 +42,7 @@ customer-app/
 │   │   ├── bodega/auth/magic-link/      # auth-magic-link (admin-only)
 │   │   ├── bodega/products/             # products route handlers
 │   │   ├── bodega/orders/[id]/ship/     # orders route handler
+│   │   ├── bodega/upload/               # owner-gated image upload → Vercel Blob
 │   │   └── stripe/webhook/              # stripe-webhook
 │   └── bodega-theme.css                 # generated from .impeccable.md tokens
 ├── .bodega.md                           # tenant config (YAML frontmatter)
@@ -75,11 +76,11 @@ Customer storage = Vercel Blob on the customer's Vercel project. Stripe = custom
 
 ## Cost per customer at this model
 
-- Customer's Vercel: free (Hobby tier covers small stores)
+- Customer's Vercel: $20/mo (Pro is required for commercial use per Vercel's Fair Use Guidelines). Hobby is fine during setup + Stripe-test-mode, upgrade at go-live.
 - Customer's Stripe: transaction fees only (their business)
 - Customer's domain: ~$12/yr (they pay)
 - Your cost to onboard: ~6-10 hrs for customer 1-3, trending down
-- Your cost to maintain monthly: near-zero (the SDK updates land via plugin, they redeploy once)
+- Your cost to maintain monthly: near-zero (the SDK updates land via npm, they redeploy once)
 
 ---
 
@@ -89,8 +90,8 @@ Customer storage = Vercel Blob on the customer's Vercel project. Stripe = custom
 - **Storage**: Vercel Blob. Products + orders + carts stored as JSON keyed by id. Customers' Stripe secret keys in Vercel env, not in storage.
 - **Stripe flow**: deferred PaymentIntent — client `elements.submit()` → server creates PI from current cart → confirmPayment. Webhook creates Order.
 - **Email**: Resend, sent from the customer's domain (with DNS TXT) or our shared `orders@bodega.my` (default).
+- **Site modes**: one config switch (`site_mode`) — `marketing` (no shop), `showcase` (browse, contact-to-buy), `digital` (sell, no shipping), `commerce` (full default). Checkout route, `AddToCartButton`, and scaffolding all branch on this.
+- **Shipping**: simple policy in config (`free` | `flat` | `per_item`). Commerce-mode only. `/checkout` reads it via env vars at request time. International + zones are Phase 2.
+- **Tax**: Stripe Tax opt-in via `BODEGA_STRIPE_TAX=true`. Off by default.
+- **Image upload**: owner-gated multipart `POST /api/bodega/upload` → Vercel Blob (public URL, unguessable path). Enforces 10 MB / allow-listed MIME types server-side.
 - **Multi-IDE**: plugin source in `source/skills/`, builds to `.claude/`, `.cursor/`, `.codex/`, and 5 others via `scripts/build.js`.
-
----
-
-*Detailed business plan in [PLAN.md](./PLAN.md).*

@@ -38,10 +38,12 @@ source/skills/<name>/reference/   ← markdown templates (copied verbatim)
 source/skills/<name>/scripts/     ← node/bash scripts (copied verbatim)
 scripts/build.js                  ← the build
 scripts/lib/transformers/         ← per-harness adapters (declarative)
-packages/commerce/                ← SDK: product/cart/checkout components
-packages/studio/                  ← SDK: merchant admin UI
+packages/bodega/                  ← single SDK: types, theme, storefront +
+                                    admin components, auth, route handlers
+                                    (published to npm as @mitcheman/bodega)
 bin/cli.js                        ← thin wrapper over npx skills
 HARNESSES.md                      ← capability matrix per IDE
+ARCHITECTURE.md                   ← shape of the repo, one level deeper
 ```
 
 ## Placeholders
