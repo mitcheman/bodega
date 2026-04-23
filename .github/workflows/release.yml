@@ -31,12 +31,13 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
         # Intentionally NO registry-url — it sets a placeholder
         # NODE_AUTH_TOKEN that breaks npm's Trusted Publishing OIDC flow.
-        # With Trusted Publisher configured on npm, `npm publish
-        # --provenance` handles auth via OIDC on its own.
+
+      - name: Upgrade npm to latest (needs >= 11.5.1 for Trusted Publishing)
+        run: npm install -g npm@latest
 
       - name: Install
         run: pnpm install --frozen-lockfile
