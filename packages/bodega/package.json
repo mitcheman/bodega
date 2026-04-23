@@ -4,6 +4,15 @@
   "description": "Bodega SDK — commerce storefront + merchant admin + auth + route handlers for Next.js App Router stores. The code powering the mitcheman/bodega Claude Code plugin.",
   "license": "Apache-2.0",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mitcheman/bodega.git",
+    "directory": "packages/bodega"
+  },
+  "homepage": "https://github.com/mitcheman/bodega#readme",
+  "bugs": {
+    "url": "https://github.com/mitcheman/bodega/issues"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
