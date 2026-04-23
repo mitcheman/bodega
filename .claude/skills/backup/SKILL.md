@@ -23,12 +23,14 @@ developers. In developer voice, calls it what it is.
 
 > Want me to set up a backup of your site?
 >
-> What it does: copies your code to a service called GitHub, where it's
-> kept safely. If your laptop dies or gets stolen, your whole site is
-> still safe.
+> What it does: copies the files your site is built from to a service
+> called GitHub — it's where millions of people keep backups of their
+> projects. If your laptop dies or gets stolen, your whole site is
+> still safe and I can restore it on another computer.
 >
-> Free. Private — only you can see it. I'll also make a fresh backup
-> every time we update your store, so you don't have to think about it.
+> Free for what we need. Private — only you can see it. I'll also
+> make a fresh backup every time we update your store, so you don't
+> have to think about it.
 >
 >   a. yes, set up a backup
 >   b. skip for now (you can do this anytime later)
@@ -44,11 +46,19 @@ developers. In developer voice, calls it what it is.
 
 ### Simple voice:
 
-> Ok. Click this to sign in to GitHub — same as before, Google works:
+> Ok. This is your first time signing into GitHub (different from
+> Vercel or Stripe, even if you used the same Google account).
 >
-> [Command: `gh auth login`]
+> Here's the flow:
 >
-> Come back and tell me "done".
+>   1. In a second I'll start the login. You'll pick a sign-in method
+>      here in this window (arrow keys + Enter).
+>   2. Your browser will open to GitHub. If you already have an account,
+>      sign in. If you don't, it'll walk you through creating one —
+>      pick a username, verify your email. Takes a couple of minutes.
+>   3. GitHub will ask to authorize a small command-line tool; click
+>      **Authorize**.
+>   4. Come back here and say "done" when GitHub says you're signed in.
 
 ### Developer voice:
 

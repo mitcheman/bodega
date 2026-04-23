@@ -90,17 +90,27 @@ Takes several minutes. Keep the user posted.
 
 ## Step 5 — Design review point
 
-After impeccable finishes, pause:
+After impeccable finishes, start a local preview so the user can
+actually see the site. Run `npm run dev` as a background process, wait
+for the "Ready" line (usually 2–5 seconds), then show the URL. Kill
+the process when the user is ready to move on.
 
 ### Simple voice:
 
-> Okay, the site is scaffolded. Open it locally with `npm run dev` and
-> take a look. Does it feel right? If not, just tell me what's off —
-> "too minimal", "colors feel cold", "headings too big" — and I'll adjust.
+> Okay, I built you a first draft of the site. I'm starting a preview
+> on your computer right now — give it a few seconds.
+>
+> When it's ready, open this in your browser:
+> **http://localhost:3000**
+>
+> Take a look. Does it feel right? If not, just tell me what's off
+> in your own words — "too minimal", "colors feel cold", "headings
+> too big", "doesn't feel like me" — and I'll adjust. No design
+> vocabulary needed.
 
 ### Developer voice:
 
-> Design scaffolded. `npm run dev` to preview. Iterate with impeccable
+> Preview up on http://localhost:3000. Iterate with impeccable
 > (polish, bolder, typeset, etc.) or move on to commerce?
 
 If the user wants changes, route their free-text feedback to the right

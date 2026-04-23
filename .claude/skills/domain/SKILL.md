@@ -40,7 +40,14 @@ Show the user the DNS records they need to add at their registrar:
 
 ### Simple voice:
 
-> To connect your domain, add these records at [wherever you bought it]:
+> To connect your domain, you'll add two small records at wherever you
+> originally bought it (GoDaddy, Namecheap, Google/Squarespace Domains,
+> etc.). These records tell the internet: "when someone types this
+> domain, send them to this store."
+>
+> Log in at your domain provider and find the section labeled **DNS**,
+> **DNS settings**, or **Manage DNS**. Add these two rows, exactly as
+> shown:
 >
 >     Type: A
 >     Name: @
@@ -50,9 +57,10 @@ Show the user the DNS records they need to add at their registrar:
 >     Name: www
 >     Value: cname.vercel-dns.com
 >
-> This takes 10 min to 24 hours to go live after you add them. Run
-> `/bodega:domain` again when you've added them — I'll
-> check if it's ready.
+> Then come back and run `/bodega:domain` again. The
+> domain usually connects within 10 minutes, but sometimes takes up to
+> 24 hours — that's normal waiting time, nothing you or I can speed up.
+> If it's not ready when you check, just try again in an hour.
 
 ### Developer voice:
 
@@ -68,14 +76,23 @@ We don't resell domains. Route to Cloudflare Registrar at wholesale:
 
 ### Simple voice:
 
-> I'll send you to Cloudflare, which sells domains at cost (no markup).
-> You'll need to sign in (Google or email) and pay for the domain with
-> a card.
+> Cloudflare is a big internet company — they sell domain names at
+> their actual wholesale cost, no markup. Most common endings
+> (`.com`, `.co`, `.net`) run about $10–$15/year. Fancier ones like
+> `.shop` or `.store` can be more.
 >
-> Click here: https://dash.cloudflare.com/sign-up?to=/registrar
+> Here's the flow:
 >
-> Come back and tell me the domain name once you've bought it. I'll
-> connect it to your site.
+>   1. Open this link in your browser:
+>      https://dash.cloudflare.com/sign-up?to=/registrar
+>   2. Create a Cloudflare account (Google or email).
+>   3. Search for the domain you want. If it's taken, try variations —
+>      adding "studio", "shop", or your city often works.
+>   4. Buy it with a credit card. They'll email you a receipt.
+>
+> The domain is in your name, on your Cloudflare account — I can't
+> touch it. Come back and tell me the domain you bought, and I'll
+> connect it to your store.
 
 ### Developer voice:
 
@@ -103,13 +120,34 @@ run twice:
 2. **Second run**: verifies with `vercel domains inspect --json` — checks
    `isApex` and `verified: true`
 
-When verified:
+### If NOT yet verified on the second run:
 
-### Simple voice:
+#### Simple voice:
+
+> Not live yet — the internet is still catching up. This is normal; it
+> can take anywhere from a few minutes to 24 hours depending on your
+> domain provider. Some things to double-check:
+>
+>   - The two records are saved at your domain provider (some sites
+>     require hitting "Save" a second time)
+>   - The values are exactly `76.76.21.21` and `cname.vercel-dns.com`,
+>     with no extra spaces
+>
+> Try again in an hour. If it's still not working tomorrow, tell me
+> and we'll dig in.
+
+#### Developer voice:
+
+> ✗ Not verified yet. DNS still propagating. Records look correct at
+> the registrar? Retry in ~1 hour.
+
+### When verified:
+
+#### Simple voice:
 
 > ✓ Your domain is live! Your store is now at https://muddmannstudio.com
 
-### Developer voice:
+#### Developer voice:
 
 > ✓ Domain verified and bound. https://<domain> → prj_abc123
 

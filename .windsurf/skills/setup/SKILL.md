@@ -53,6 +53,36 @@ Wait for both answers. Re-ask only the unclear part if ambiguous.
 
 Validate email format. Store.
 
+## Step 1.5 — Set expectations (simple voice only)
+
+If voice is `simple`, tell the user what they're signing up for. Skip
+this in developer voice — developers already know the shape.
+
+### Simple voice:
+
+> Here's what's coming, so you're not surprised:
+>
+>   1. A few quick questions about your store (2 min)
+>   2. Signing you in to **Vercel** — that's where your site will live
+>      on the internet (2 min)
+>   3. Signing you in to **Stripe** — that's what lets you take credit
+>      cards. This one can take 10 minutes to 2 days depending on
+>      whether they need to verify your ID. We can keep going even if
+>      it's not done.
+>   4. Putting your site on the internet for real (2 min)
+>   5. Setting up your admin page, where you'll add products (1 min)
+>   6. Optional: connecting a custom domain like `muddmannstudio.com`
+>      if you want one
+>
+> About 15–30 minutes of your active time. If anything gets stuck
+> (waiting on Stripe, a domain, etc.) I'll tell you exactly what to
+> do and you can come back when you're ready.
+>
+> Ready?
+
+Wait for acknowledgement (or any non-"no" response). Don't block — if
+they sound impatient, skip ahead.
+
 ## Step 2 — Business context
 
 ### 2a. Site mode

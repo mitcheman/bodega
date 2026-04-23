@@ -22,11 +22,23 @@ the vercel-plugin.
 ### Simple voice:
 
 > First, your site needs somewhere on the internet to live. I'll use
-> Vercel (free for stores like yours). You'll sign in with Google,
-> Apple, or email. Takes 30 seconds.
+> Vercel — that's the company that will run your site day-to-day.
+> Free for stores at your size, and the account is yours (I'm not
+> in the middle).
 >
-> I'll open the login now. Come back and tell me "done" when you see
-> "Logged in" in your browser.
+> Here's what's about to happen:
+>
+>   1. In a second I'll start the login. You'll see a list of options
+>      right here in this window (Google, GitHub, email, etc.) — use
+>      the arrow keys to pick one and hit Enter.
+>   2. Your browser will open to a Vercel page showing a short code.
+>      The same code will also be shown here. Click **Confirm** in the
+>      browser if the codes match.
+>   3. Come back here and say "done" when the browser tells you
+>      "You are now logged in."
+>
+> If you don't have a Vercel account yet, the same flow creates one —
+> no separate signup.
 
 ### Developer voice:
 
@@ -51,8 +63,16 @@ Slug from `business.name` in `.bodega.md`. Example:
 vercel link --yes --project <slug>
 ```
 
-If slug is taken by another user, append `-1`, `-2` and retry. In simple
-voice, just say "Setting up your site...". In developer voice, surface.
+If slug is taken by another user, append `-1`, `-2` and retry.
+
+### Simple voice:
+
+> Setting up your store on Vercel — picking a name, reserving the space.
+> Give me a second.
+
+### Developer voice:
+
+> `vercel link --yes --project <slug>`. If taken, suffix `-1`.
 
 ## Step 3 — Provision storage
 
@@ -66,8 +86,9 @@ Attach to the project. Auto-creates `BLOB_READ_WRITE_TOKEN` env var.
 
 ### Simple voice:
 
-> ✓ Hosting ready.
-> ✓ Set up storage for your products and photos.
+> ✓ Your site has a home on the internet.
+> ✓ Set up storage for your product photos — the images live on your
+>   Vercel account, not mine. You own them.
 
 ### Developer voice:
 

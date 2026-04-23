@@ -113,6 +113,26 @@ Tell the operator in chosen voice:
 > I already emailed her the login link — you don't have to do anything
 > unless you want to tweak the copy first.
 
+## Step 4b — Self-operator confirmation (if `handoff: false`)
+
+When the store owner is running this themselves, there's no handoff
+package — just a login link in their inbox. Tell them what to expect.
+
+### Developer voice:
+
+> ✓ Magic link sent to `<operator.email>`. Expires in 24h.
+> `/studio` is live at https://<url>/studio.
+
+### Simple voice:
+
+> ✓ Your admin is set up. I just emailed you a login link — check your
+> inbox in a minute (and peek at your spam folder if it's not there).
+>
+> Click the link and you'll land in your store's admin, where you can
+> add products, see orders, and manage shipping. The link expires in
+> 24 hours; if you miss it, run `$bodega:admin` again
+> and I'll send a fresh one.
+
 ## Step 5 — Update `.bodega.md`
 
 ```yaml
