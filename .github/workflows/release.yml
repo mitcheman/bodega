@@ -74,4 +74,9 @@ jobs:
           prerelease: ${{ startsWith(github.ref, 'refs/tags/v0.') }}
 
       - name: Publish @mitcheman/bodega to npm (via OIDC)
-        run: pnpm --filter "@mitcheman/bodega" publish --access public --provenance --no-git-checks
+        # Using `npm publish` (not pnpm) because npm's CLI has first-class
+        # Trusted Publishing / OIDC support; pnpm's forwarding is inconsistent.
+        # The build is already done by the prior step; --ignore-scripts skips
+        # prepublishOnly re-running it.
+        working-directory: packages/bodega
+        run: npm publish --access public --provenance --ignore-scripts
