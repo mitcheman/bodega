@@ -4,7 +4,7 @@
 // edit (/studio/products/[id]). When `product` is null, it's a new
 // form; when provided, it prefills and updates.
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Product } from '../types.js';
 
@@ -23,7 +23,7 @@ export function ProductEditor({ product = null }: ProductEditorProps) {
     product ? (product.price_cents / 100).toFixed(2) : '',
   );
   const [description, setDescription] = useState(product?.description ?? '');
-  const [imagesCsv, setImagesCsv] = useState(product?.images.join('\n') ?? '');
+  const [images, setImages] = useState<string[]>(product?.images ?? []);
   const [inventoryText, setInventoryText] = useState(
     product?.inventory === null || product?.inventory === undefined
       ? ''
@@ -45,11 +45,6 @@ export function ProductEditor({ product = null }: ProductEditorProps) {
       setError('Price needs to be a number greater than zero.');
       return;
     }
-
-    const images = imagesCsv
-      .split(/\n+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
 
     const inventory = inventoryText.trim() === '' ? null : parseInt(inventoryText, 10);
 
@@ -133,17 +128,8 @@ export function ProductEditor({ product = null }: ProductEditorProps) {
           />
         </Field>
 
-        <Field
-          label="Photo URLs (one per line)"
-          hint="Upload to any image host (imgur, Cloudinary, or Vercel Blob) and paste the URLs here. First one is the primary."
-        >
-          <textarea
-            value={imagesCsv}
-            onChange={(e) => setImagesCsv(e.target.value)}
-            rows={3}
-            placeholder={'https://...\nhttps://...'}
-            style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', fontSize: '0.9rem' }}
-          />
+        <Field label="Photos" hint="First photo is the primary one shown on the product card.">
+          <ImageUploader images={images} onChange={setImages} />
         </Field>
 
         <Field label="Inventory (leave blank for unlimited)">
@@ -230,6 +216,198 @@ export function ProductEditor({ product = null }: ProductEditorProps) {
     </section>
   );
 }
+
+// ─── ImageUploader ─────────────────────────────────────────────────────
+
+function ImageUploader({
+  images,
+  onChange,
+}: {
+  images: string[];
+  onChange: (images: string[]) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  async function uploadFile(file: File): Promise<string | null> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/bodega/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) {
+      const out = await res.json().catch(() => ({ message: `Upload failed (${res.status}).` }));
+      throw new Error(out.message ?? 'Upload failed.');
+    }
+    const { url } = (await res.json()) as { url: string };
+    return url;
+  }
+
+  async function onFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setUploadError(null);
+    const added: string[] = [];
+    try {
+      for (const file of Array.from(files)) {
+        const url = await uploadFile(file);
+        if (url) added.push(url);
+      }
+      onChange([...images, ...added]);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Upload failed.');
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  }
+
+  function removeAt(index: number) {
+    onChange(images.filter((_, i) => i !== index));
+  }
+
+  function moveUp(index: number) {
+    if (index === 0) return;
+    const next = [...images];
+    [next[index - 1], next[index]] = [next[index]!, next[index - 1]!];
+    onChange(next);
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={(e) => onFiles(e.target.files)}
+        disabled={uploading}
+        style={{
+          padding: '0.5rem',
+          fontSize: '0.9rem',
+          fontFamily: 'inherit',
+          color: 'var(--bodega-fg)',
+        }}
+      />
+
+      {uploading && (
+        <div style={{ fontSize: '0.85rem', opacity: 0.7 }}>Uploading…</div>
+      )}
+
+      {uploadError && (
+        <div
+          role="alert"
+          style={{
+            padding: '0.5rem 0.75rem',
+            background: 'rgba(200, 50, 50, 0.1)',
+            color: '#b52a2a',
+            fontSize: '0.85rem',
+          }}
+        >
+          {uploadError}
+        </div>
+      )}
+
+      {images.length > 0 && (
+        <ul
+          style={{
+            listStyle: 'none',
+            padding: 0,
+            margin: 0,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+            gap: '0.5rem',
+          }}
+        >
+          {images.map((src, i) => (
+            <li
+              key={src}
+              style={{
+                position: 'relative',
+                aspectRatio: '1 / 1',
+                background: 'var(--bodega-muted)',
+                border: i === 0 ? '2px solid var(--bodega-accent)' : 'none',
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={src}
+                alt=""
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  display: 'block',
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  display: 'flex',
+                  gap: '2px',
+                  padding: '2px',
+                }}
+              >
+                {i > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => moveUp(i)}
+                    title="Move up (make primary)"
+                    style={photoButtonStyle}
+                  >
+                    ↑
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeAt(i)}
+                  title="Remove"
+                  style={photoButtonStyle}
+                >
+                  ×
+                </button>
+              </div>
+              {i === 0 && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    padding: '2px 4px',
+                    background: 'var(--bodega-accent)',
+                    color: 'var(--bodega-bg)',
+                    fontSize: '0.7rem',
+                    textAlign: 'center',
+                  }}
+                >
+                  primary
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+const photoButtonStyle: React.CSSProperties = {
+  width: '22px',
+  height: '22px',
+  background: 'rgba(0, 0, 0, 0.6)',
+  color: '#fff',
+  border: 'none',
+  borderRadius: '2px',
+  cursor: 'pointer',
+  fontSize: '0.8rem',
+  lineHeight: 1,
+  padding: 0,
+};
 
 const inputStyle: React.CSSProperties = {
   padding: '0.75rem',

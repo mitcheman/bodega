@@ -126,10 +126,31 @@ export interface CartItem {
   snapshot_title: string;
 }
 
+/** Voice the plugin uses during setup + in-skill output. */
+export type VoiceMode = 'developer' | 'simple';
+
+/** What kind of site this is. Drives which routes get scaffolded and
+ *  which components render. */
+export type SiteMode =
+  | 'marketing'   // just home/about/contact, no commerce at all
+  | 'showcase'    // products displayed, no cart/checkout ("contact to buy")
+  | 'digital'     // cart + checkout + digital delivery, no shipping UI
+  | 'commerce';   // full store: cart + checkout + shipping + fulfillment
+
+/** Shipping cost policy. Ignored in modes that don't ship physical goods. */
+export type ShippingPolicy =
+  | { mode: 'free' }
+  | { mode: 'flat'; cents: number }
+  | { mode: 'per_item'; cents: number };
+
 /** Configuration read from .bodega.md — the structured part. */
 export interface BodegaConfig {
   version: number;
-  mode: 'developer' | 'simple';
+  /** Voice of the plugin during setup (developer/simple). */
+  mode: VoiceMode;
+  /** Kind of site being built. Drives scaffolding + component behavior.
+   *  Defaults to 'commerce' when absent for back-compat with v0.1.x. */
+  site_mode?: SiteMode;
   handoff: boolean;
   merchant?: { email: string; first_name?: string };
   operator?: { email: string; first_name?: string };
@@ -147,6 +168,10 @@ export interface BodegaConfig {
       verified_at: string | null;
     };
     vibe: string;
+    /** Shipping cost policy. Required when site_mode is 'commerce'. */
+    shipping?: ShippingPolicy;
+    /** Enable Stripe Tax automatic tax calculation at checkout. Default false. */
+    stripe_tax?: boolean;
   };
   state: {
     hosting: SetupState;

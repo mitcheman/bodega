@@ -2,11 +2,16 @@ import { notFound } from 'next/navigation';
 import { getStorage } from '../storage/blob.js';
 import { formatPrice } from '../format.js';
 import { AddToCartButton } from './AddToCartButton.js';
-import type { Product } from '../types.js';
+import type { Product, SiteMode } from '../types.js';
 
 interface ProductPageProps {
   /** The slug from the dynamic route segment. */
   slug: string;
+  /** Site mode. 'showcase' and 'marketing' swap the buy button for a
+   *  contact CTA. Default: 'commerce'. */
+  siteMode?: SiteMode;
+  /** Contact page href used in showcase/marketing modes. Default: '/contact'. */
+  contactHref?: string;
 }
 
 /**
@@ -21,7 +26,11 @@ interface ProductPageProps {
  *     return <ProductPage slug={slug} />;
  *   }
  */
-export async function ProductPage({ slug }: ProductPageProps) {
+export async function ProductPage({
+  slug,
+  siteMode = 'commerce',
+  contactHref = '/contact',
+}: ProductPageProps) {
   const storage = getStorage();
   const product = await storage.getProductBySlug(slug);
 
@@ -44,7 +53,11 @@ export async function ProductPage({ slug }: ProductPageProps) {
       }}
     >
       <ProductImages product={product} />
-      <ProductInfo product={product} />
+      <ProductInfo
+        product={product}
+        siteMode={siteMode}
+        contactHref={contactHref}
+      />
     </article>
   );
 }
@@ -92,7 +105,15 @@ function ProductImages({ product }: { product: Product }) {
   );
 }
 
-function ProductInfo({ product }: { product: Product }) {
+function ProductInfo({
+  product,
+  siteMode,
+  contactHref,
+}: {
+  product: Product;
+  siteMode: SiteMode;
+  contactHref: string;
+}) {
   const soldOut = product.inventory === 0;
 
   return (
@@ -141,7 +162,11 @@ function ProductInfo({ product }: { product: Product }) {
         </div>
       )}
 
-      <AddToCartButton product={product} />
+      <AddToCartButton
+        product={product}
+        siteMode={siteMode}
+        contactHref={contactHref}
+      />
 
       {product.tags.length > 0 && (
         <div

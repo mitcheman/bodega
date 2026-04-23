@@ -13,9 +13,28 @@ as part of `/bodega:setup`'s flow.
 
 1. Read `.bodega.md`. Required:
    - `state.hosting: done`
-   - `state.payments: done` OR `state.payments: pending` (latter → preview mode)
+   - `site_mode` present (one of: marketing, showcase, digital, commerce)
+   - For `digital` or `commerce` modes: `state.payments: done` OR
+     `state.payments: pending` (latter → preview mode)
 2. Read `.impeccable.md` if present. Otherwise fall back to
    `app/globals.css` and `tailwind.config.*` for design tokens.
+
+### Site mode scaffolding matrix
+
+What gets scaffolded depends on `site_mode`:
+
+| Piece | marketing | showcase | digital | commerce |
+|---|:---:|:---:|:---:|:---:|
+| `/shop` + `/shop/[slug]` | — | ✓ | ✓ | ✓ |
+| `/cart` + `/checkout` | — | — | ✓ | ✓ |
+| `/api/bodega/cart*`, `/api/bodega/checkout`, `/api/stripe/webhook` | — | — | ✓ | ✓ |
+| `/studio` admin | — | ✓ (products only) | ✓ | ✓ |
+| `/studio/orders*` + `/api/bodega/orders/*` | — | — | ✓ | ✓ |
+| Stripe env vars | — | — | ✓ | ✓ |
+| `BODEGA_SHIPPING_*` env vars | — | — | — | ✓ |
+
+Pass `siteMode` prop to `<ProductGrid>` and `<ProductPage>` when
+scaffolding so they render the right CTA (buy button vs "contact to buy").
 
 ## Step 1 — Install the Bodega SDK
 
@@ -88,7 +107,8 @@ app/studio/orders/[id]/page.tsx         # OrderDetail (dynamic)
 
 Each is a thin wrapper importing `@mitcheman/bodega`.
 
-**Server-component page example** (`app/shop/page.tsx`):
+**Server-component page example** (`app/shop/page.tsx`) — pass `siteMode`
+from `.bodega.md` so the CTA matches:
 
 ```tsx
 import { ProductGrid } from '@mitcheman/bodega';
@@ -96,8 +116,18 @@ import { ProductGrid } from '@mitcheman/bodega';
 export const dynamic = 'force-dynamic';
 
 export default function ShopPage() {
-  return <ProductGrid heading="Shop" />;
+  return <ProductGrid heading="Shop" siteMode="commerce" />;
 }
+```
+
+(For `showcase` mode, pass `siteMode="showcase"` — the `<AddToCartButton>`
+inside `<ProductPage>` becomes a "Contact to buy" link instead.)
+
+**Image upload route** (`app/api/bodega/upload/route.ts`) — enables real
+file uploads from `/studio` instead of pasting URLs:
+
+```ts
+export { POST } from '@mitcheman/bodega/routes/upload';
 ```
 
 **Route handler example** (`app/api/bodega/cart/route.ts`):
@@ -182,6 +212,32 @@ Write it to Vercel:
 ```
 vercel env add RESEND_API_KEY production
 ```
+
+### Site mode + shipping env vars
+
+Set `BODEGA_SITE_MODE` so the checkout route knows whether to charge
+shipping + which policy:
+
+```
+vercel env add BODEGA_SITE_MODE production <<< "<site_mode>"
+```
+
+For `commerce` mode, also set the shipping policy from `.bodega.md`:
+
+```
+vercel env add BODEGA_SHIPPING_MODE production <<< "<shipping.mode>"
+vercel env add BODEGA_SHIPPING_CENTS production <<< "<shipping.cents>"
+```
+
+If Stripe Tax is enabled (opt-in, default off):
+
+```
+vercel env add BODEGA_STRIPE_TAX production <<< "true"
+```
+
+Note to the merchant if Stripe Tax is on: they need to configure tax
+jurisdictions in their Stripe dashboard (Stripe → Tax → Registrations)
+for tax to actually be collected.
 
 Record in `.bodega.md`:
 

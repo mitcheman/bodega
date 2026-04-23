@@ -1,6 +1,6 @@
 {
   "name": "bodega",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Bodega — turn any Claude-built Next.js site into a working store. Multi-harness plugin (Claude Code, Cursor, Codex, Gemini, etc.) compiled from canonical sources.",
   "license": "Apache-2.0",

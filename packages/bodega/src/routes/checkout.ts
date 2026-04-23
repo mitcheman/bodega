@@ -8,11 +8,19 @@
 //   This handler creates the PaymentIntent from the current cart and
 //   returns the client_secret. The Order record is NOT created here —
 //   that happens in the stripe-webhook handler on payment_intent.succeeded.
+//
+// Reads shipping + tax config from env vars:
+//   BODEGA_SHIPPING_MODE          — 'free' | 'flat' | 'per_item' (default 'free')
+//   BODEGA_SHIPPING_CENTS         — integer cents, used in flat/per_item modes
+//   BODEGA_STRIPE_TAX             — 'true' enables Stripe automatic tax
+//   BODEGA_SITE_MODE              — 'marketing' | 'showcase' | 'digital' | 'commerce'
+//                                   (digital + marketing + showcase force shipping to 0)
 
 import { NextResponse, type NextRequest } from 'next/server';
 import Stripe from 'stripe';
 import { readCart } from './cart-session.js';
 import { getStorage } from '../storage/blob.js';
+import type { CartItem } from '../types.js';
 
 let stripeClient: Stripe | null = null;
 function stripe(): Stripe {
@@ -25,6 +33,22 @@ function stripe(): Stripe {
   }
   stripeClient = new Stripe(key);
   return stripeClient;
+}
+
+function computeShippingCents(items: CartItem[]): number {
+  const siteMode = process.env.BODEGA_SITE_MODE ?? 'commerce';
+  // Only 'commerce' mode charges shipping. Digital/marketing/showcase don't ship.
+  if (siteMode !== 'commerce') return 0;
+
+  const mode = process.env.BODEGA_SHIPPING_MODE ?? 'free';
+  const cents = parseInt(process.env.BODEGA_SHIPPING_CENTS ?? '0', 10) || 0;
+
+  if (mode === 'flat') return cents;
+  if (mode === 'per_item') {
+    const qty = items.reduce((n, i) => n + i.quantity, 0);
+    return cents * qty;
+  }
+  return 0;
 }
 
 export async function POST(req: NextRequest) {
@@ -73,28 +97,48 @@ export async function POST(req: NextRequest) {
     subtotal_cents += product.price_cents * item.quantity;
   }
 
-  // Phase 1: no shipping / tax calculation server-side. Stripe Tax can be
-  // enabled in the dashboard to add tax at payment-collection time.
-  // Shipping is passed at zero here; the store's shipping policy page
-  // explains any flat-rate the merchant charges on ship.
-  const amount = subtotal_cents;
+  const shipping_cents = computeShippingCents(cart.items);
+  const taxEnabled = process.env.BODEGA_STRIPE_TAX === 'true';
+
+  // Total: subtotal + shipping. Tax is calculated by Stripe (if enabled)
+  // and added at confirm time — don't bake it into `amount`.
+  const amount = subtotal_cents + shipping_cents;
   const currency = cart.currency.toLowerCase();
 
   try {
-    const intent = await stripe().paymentIntents.create({
+    // Stripe Tax on PaymentIntent is supported by the API but the SDK
+    // types occasionally lag. Use an inline type augmentation.
+    type PIParams = Stripe.PaymentIntentCreateParams & {
+      automatic_tax?: { enabled: boolean };
+    };
+
+    const params: PIParams = {
       amount,
       currency,
       automatic_payment_methods: { enabled: true },
       receipt_email: email,
       metadata: {
         cart_id: cart.id,
-        bodega_version: '0.0.1',
+        bodega_version: '0.2.0',
+        subtotal_cents: String(subtotal_cents),
+        shipping_cents: String(shipping_cents),
       },
-    });
+    };
+
+    // Stripe Tax: automatic tax calculation at checkout. Off by default —
+    // merchant opts in by setting BODEGA_STRIPE_TAX=true and configuring
+    // their tax jurisdictions in the Stripe dashboard.
+    if (taxEnabled) {
+      params.automatic_tax = { enabled: true };
+    }
+
+    const intent = await stripe().paymentIntents.create(params);
 
     return NextResponse.json({
       client_secret: intent.client_secret,
       payment_intent_id: intent.id,
+      subtotal_cents,
+      shipping_cents,
     });
   } catch (err) {
     const message =

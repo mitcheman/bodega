@@ -11,6 +11,77 @@ land in a minor-version bump.
 
 ---
 
+## [0.2.0] — 2026-04-23
+
+Second release. Three big themes: **optional components**, **real image
+uploads**, **shipping + tax**.
+
+### Site modes
+
+`.bodega.md` now has a `site_mode` field. Four options:
+
+- **`marketing`** — just home/about/contact. No shop, no admin, no
+  Stripe. For makers who want a beautiful site without selling online.
+- **`showcase`** — display products with "Contact to buy" CTAs. No
+  cart, no checkout. Admin has product management only (no orders).
+- **`digital`** — full cart + checkout + admin. No shipping UI.
+- **`commerce`** — the v0.1.0 default. Everything.
+
+Setup skill now asks the site-mode question up front. Deploy skill
+scaffolds conditionally based on mode — marketing sites don't get
+useless route handlers, showcase sites don't get Stripe env vars, etc.
+
+The `<ProductGrid>`, `<ProductPage>`, and `<AddToCartButton>` components
+accept a `siteMode` prop. In showcase / marketing mode, the buy button
+becomes a "Contact to buy" link pointing at `/contact?subject=...`.
+
+### Real image uploads in `/studio`
+
+Previous: merchant pastes URLs into a textarea (bad UX).
+Now: drag-or-click file upload, preview thumbnails, drag to reorder,
+click to mark primary. Uploads to Vercel Blob via a new
+`@mitcheman/bodega/routes/upload` route handler.
+
+- 10 MB per image max
+- JPEG, PNG, WebP, GIF, AVIF supported
+- Owner-gated (uses the same `requireOwner` session check)
+- Random path prefix so URLs aren't guessable across merchants
+
+### Shipping + tax
+
+`BodegaConfig.business.shipping` field. Three modes:
+
+- `{ mode: 'free' }` — you absorb shipping costs
+- `{ mode: 'flat', cents: 500 }` — one flat rate per order
+- `{ mode: 'per_item', cents: 300 }` — per-item charge
+
+Checkout route reads from env vars (`BODEGA_SHIPPING_MODE`,
+`BODEGA_SHIPPING_CENTS`) and adds shipping to the PaymentIntent amount.
+
+Stripe Tax is also now opt-in. Set `BODEGA_STRIPE_TAX=true` to enable
+automatic tax calculation — the merchant is then responsible for
+configuring tax registrations in their Stripe dashboard.
+
+### Breaking changes
+
+- `BodegaConfig.site_mode` is now required for `deploy` to run — but
+  for back-compat, the plugin defaults to `commerce` when absent.
+- `checkout` route reads shipping + tax from env vars that didn't
+  exist in v0.1. Re-run `deploy` to set them.
+- `ProductEditor` no longer accepts `imagesCsv` — replaced with the new
+  file upload UI. If you were passing image URLs programmatically,
+  upload them via POST `/api/bodega/upload` first.
+
+### Upgrade path from 0.1.0
+
+```
+npm install @mitcheman/bodega@0.2.0
+# Re-run `/bodega:deploy` from Claude Code — it handles env var updates
+# and will re-scaffold the upload route.
+```
+
+---
+
 ## [0.1.0] — 2026-04-22
 
 First public release. Functionally complete end-to-end for single-tenant

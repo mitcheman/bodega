@@ -1,5 +1,6 @@
 import { getStorage } from '../storage/blob.js';
 import { ProductCard } from './ProductCard.js';
+import type { SiteMode } from '../types.js';
 
 interface ProductGridProps {
   /** Include draft/unpublished products. Only true for /studio previews. */
@@ -8,6 +9,9 @@ interface ProductGridProps {
   heading?: string;
   /** Maximum products to show. Defaults to all. */
   limit?: number;
+  /** Site mode. Pure presentation in 'marketing' / 'showcase' modes;
+   *  full commerce behavior in 'digital' / 'commerce'. Default: 'commerce'. */
+  siteMode?: SiteMode;
 }
 
 /**

@@ -12,6 +12,9 @@ export type {
   CartItem,
   BodegaConfig,
   SetupState,
+  VoiceMode,
+  SiteMode,
+  ShippingPolicy,
 } from './types.js';
 
 // Theme resolution

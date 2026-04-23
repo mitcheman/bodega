@@ -1,6 +1,6 @@
 {
   "name": "bodega",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Turn any Claude-built Next.js site into a working store. Hosting, payments, admin, and a non-technical merchant dashboard.",
   "license": "Apache-2.0",
   "skills": "./.claude/skills",

@@ -56,10 +56,36 @@ Validate email format. Store.
 
 ## Step 2 — Business context
 
-Ask these five questions in the chosen voice:
+### 2a. Site mode
+
+Ask first:
+
+> **What kind of site are you building?**
+>
+>   a. **Just a website** — home, about, contact. No shop.
+>   b. **Showcase** — display products so people can see what you make,
+>      but no online purchasing (they contact you to buy).
+>   c. **Digital store** — sell digital products (prints, zines, music,
+>      patterns). No shipping needed.
+>   d. **Full store** — sell physical products with shipping, an admin
+>      for orders, the works.
+
+Map their answer to `site_mode` in `.bodega.md`:
+
+| Answer | `site_mode` | Notes |
+|---|---|---|
+| a | `marketing` | Skip /shop, /cart, /checkout, /studio, Stripe. Done after hosting + domain. |
+| b | `showcase` | Scaffold /shop + /studio (products-only). Skip /cart, /checkout, Stripe. |
+| c | `digital` | Scaffold full storefront + admin + Stripe. Skip shipping UI in /studio. |
+| d | `commerce` | Full default. Scaffold everything. |
+
+### 2b. Remaining context
+
+Ask in the chosen voice:
 
 1. **What are you selling?** (pottery, prints, sailing lessons — free text)
-2. **Shipping from?** (city, "digital only", or "I deliver in person")
+2. **Shipping from?** (city, "digital only", or "I deliver in person") —
+   skip if `site_mode` is `marketing` or `digital`.
 3. **Domain preference** — three paths:
    - Use the default Vercel URL for now (`<slug>.vercel.app`, free) —
      pick a slug from their business name, but domain can be bound later
@@ -67,6 +93,20 @@ Ask these five questions in the chosen voice:
    - Custom domain not-yet-owned (`~$12/year`, we walk through it later)
 4. **Business name to show publicly** (for titles, SEO, receipts)
 5. **Anything I should know about the vibe?** (free text)
+
+### 2c. Shipping policy (commerce mode only)
+
+If `site_mode` is `commerce`, also ask:
+
+> **How do you want to charge for shipping?**
+>
+>   a. **Free shipping** (you absorb the cost)
+>   b. **Flat rate** — one price per order (e.g. $5 anywhere in the US)
+>   c. **Per item** — each item adds the same amount (good for
+>      same-sized items)
+
+Store as `business.shipping: { mode, cents }` in `.bodega.md`.
+Default to `{ mode: 'flat', cents: 500 }` if they're unsure.
 
 ## Step 3 — Write `.bodega.md`
 
