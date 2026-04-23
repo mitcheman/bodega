@@ -1,7 +1,7 @@
 // Next.js route handler for checkout initiation.
 //
 // Mount at app/api/bodega/checkout/route.ts:
-//   export { POST } from '@bodega/commerce/routes/checkout';
+//   export { POST } from '@mitcheman/bodega/routes/checkout';
 //
 // Flow (deferred PaymentIntent):
 //   Client has already called elements.submit() and validated the form.

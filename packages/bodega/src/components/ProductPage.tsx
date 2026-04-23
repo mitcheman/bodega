@@ -15,7 +15,7 @@ interface ProductPageProps {
  * Usage:
  *
  *   // app/shop/[slug]/page.tsx
- *   import { ProductPage } from '@bodega/commerce';
+ *   import { ProductPage } from '@mitcheman/bodega';
  *   export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
  *     const { slug } = await params;
  *     return <ProductPage slug={slug} />;

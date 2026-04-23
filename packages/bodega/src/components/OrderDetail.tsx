@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
-import { getStorage, formatPrice } from '@bodega/commerce';
-import type { Order } from '@bodega/commerce/types';
+import { getStorage, formatPrice } from '../index.js';
+import type { Order } from '../types.js';
 import { MarkShippedButton } from './MarkShippedButton.js';
 
 interface OrderDetailProps {

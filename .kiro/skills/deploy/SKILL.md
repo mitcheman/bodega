@@ -18,23 +18,24 @@ as part of `/bodega:setup`'s flow.
 
 ## Step 1 — Install the Bodega SDK
 
-If the project doesn't already have `@bodega/commerce` and `@bodega/studio`:
+If the project doesn't already have `@mitcheman/bodega`:
 
 ```
-npm install @bodega/commerce @bodega/studio
+npm install @mitcheman/bodega
 ```
 
 (Detect pnpm/yarn/bun from lockfile and match.)
 
-**Note on dev installs**: if the packages haven't been published to npm
-yet (pre-release), install from the local workspace instead:
+**Note on dev installs**: if `@mitcheman/bodega` hasn't been published
+to npm yet (pre-release), install from a locally-packed tarball:
 
 ```
-npm install file:<path-to-bodega>/packages/commerce file:<path-to-bodega>/packages/studio
+pnpm --filter "@mitcheman/bodega" pack --pack-destination /tmp
+npm install /tmp/mitcheman-bodega-<version>.tgz
 ```
 
-The plugin reads `.bodega.md` → `plugin_repo_path` for the path. Falls
-back to the npm registry when that field is absent.
+(A plain `npm install file:<path>` creates a symlink, which can't
+resolve the `next` peer dep. Use pnpm-packed tarballs for local testing.)
 
 ## Step 2 — Resolve design tokens
 
@@ -84,12 +85,12 @@ app/studio/orders/page.tsx              # OrdersPage (dynamic)
 app/studio/orders/[id]/page.tsx         # OrderDetail (dynamic)
 ```
 
-Each is a thin wrapper importing `@bodega/commerce` or `@bodega/studio`.
+Each is a thin wrapper importing `@mitcheman/bodega`.
 
 **Server-component page example** (`app/shop/page.tsx`):
 
 ```tsx
-import { ProductGrid } from '@bodega/commerce';
+import { ProductGrid } from '@mitcheman/bodega';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,13 +102,13 @@ export default function ShopPage() {
 **Route handler example** (`app/api/bodega/cart/route.ts`):
 
 ```ts
-export { GET } from '@bodega/commerce/routes/cart';
+export { GET } from '@mitcheman/bodega/routes/cart';
 ```
 
 **Admin layout example** (`app/studio/layout.tsx`):
 
 ```tsx
-import { StudioLayout } from '@bodega/studio';
+import { StudioLayout } from '@mitcheman/bodega';
 export default StudioLayout;
 ```
 
@@ -117,7 +118,7 @@ Cart state lives client-side and is shared across the consumer
 experience. Edit `app/layout.tsx` to wrap `{children}`:
 
 ```tsx
-import { CartProvider } from '@bodega/commerce';
+import { CartProvider } from '@mitcheman/bodega';
 import './bodega-theme.css';
 
 export default function RootLayout({ children }) {
@@ -298,7 +299,7 @@ straight to Step 6 (deploy) + Step 9 (auto-backup).
   and preview mode isn't explicitly enabled.
 - **Don't overwrite user-written files** in `app/` without warning.
   Our routes are `app/shop/`, `app/cart/`, etc. — if occupied, ask.
-- **SDK import paths are stable.** Always `@bodega/commerce` and
-  `@bodega/studio`.
+- **SDK import paths are stable.** Always `@mitcheman/bodega` and
+  `@mitcheman/bodega`.
 - **Stripe webhook endpoint is always** `/api/stripe/webhook`. Don't
   change it.

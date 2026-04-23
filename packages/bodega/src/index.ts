@@ -1,6 +1,6 @@
-// Public entry point for @bodega/commerce.
+// Public entry point for @mitcheman/bodega.
 
-// Domain types (renamed Cart → CartState to avoid collision with <Cart> component)
+// Domain types (Cart aliased to CartState to avoid collision with <Cart> component)
 export type {
   Product,
   ProductKind,
@@ -34,12 +34,28 @@ export { VercelBlobStorage, getStorage, computeCartSubtotal } from './storage/bl
 // Cart state (client-side)
 export { CartProvider, useCart, subtotalOf } from './cart/state.js';
 
-// Components — storefront (server)
+// Auth primitives
+export type {
+  StudioRole,
+  MagicLinkOptions,
+  MagicLinkRecord,
+  Session,
+  MagicLinkStorage,
+} from './auth/magic-link.js';
+export { createMagicLink, verifyMagicLink } from './auth/magic-link.js';
+export {
+  VercelBlobMagicLinkStorage,
+  getMagicLinkStorage,
+} from './auth/blob-storage.js';
+export { issueSession, getSession, endSession } from './auth/session.js';
+export { requireSession, requireOwner } from './auth/require-session.js';
+
+// Storefront components (server)
 export { ProductGrid } from './components/ProductGrid.js';
 export { ProductCard } from './components/ProductCard.js';
 export { ProductPage } from './components/ProductPage.js';
 
-// Components — cart + checkout (client)
+// Storefront components (client)
 export { AddToCartButton } from './components/AddToCartButton.js';
 export { Cart } from './components/Cart.js';
 export { Checkout } from './components/Checkout.js';
@@ -50,3 +66,13 @@ export {
   readCart,
   clearCartCookie,
 } from './routes/cart-session.js';
+
+// Studio admin components
+export { default as StudioLayout } from './components/StudioLayout.js';
+export { LoginPage } from './components/LoginPage.js';
+export { StudioHome } from './components/StudioHome.js';
+export { ProductsPage } from './components/ProductsPage.js';
+export { ProductEditor } from './components/ProductEditor.js';
+export { OrdersPage } from './components/OrdersPage.js';
+export { OrderDetail } from './components/OrderDetail.js';
+export { MarkShippedButton } from './components/MarkShippedButton.js';

@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { getStorage, formatPrice } from '@bodega/commerce';
-import type { Order, Product } from '@bodega/commerce/types';
+import { getStorage, formatPrice } from '../index.js';
+import type { Order, Product } from '../types.js';
 
 /**
  * Studio home — the first thing the merchant sees after signing in.

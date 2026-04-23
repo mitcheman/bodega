@@ -3,7 +3,7 @@
 // /studio/login — the only unauthenticated page under /studio.
 //
 // Mount at app/studio/login/page.tsx:
-//   import { LoginPage } from '@bodega/studio';
+//   import { LoginPage } from '@mitcheman/bodega';
 //   export default LoginPage;
 
 import { useState, useTransition } from 'react';

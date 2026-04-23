@@ -6,7 +6,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Product } from '@bodega/commerce/types';
+import type { Product } from '../types.js';
 
 interface ProductEditorProps {
   /** Existing product to edit. Null for new. */

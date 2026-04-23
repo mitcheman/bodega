@@ -5,8 +5,8 @@
 //   app/api/bodega/products/[id]/route.ts             → export { PATCH, DELETE }
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { getStorage } from '@bodega/commerce';
-import type { Product } from '@bodega/commerce/types';
+import { getStorage } from '../index.js';
+import type { Product } from '../types.js';
 import { requireOwner } from '../auth/require-session.js';
 
 type RouteContext = { params: Promise<{ id: string }> };

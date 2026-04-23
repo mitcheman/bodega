@@ -27,23 +27,22 @@ stores; tested by the author's own `muddmann` build.
 - Working scripts: `doctor/check.mjs`, `hosting/link-vercel.mjs`,
   `backup/scan-secrets.mjs`.
 
-### `@bodega/commerce`
+### `@mitcheman/bodega`
+
+Single SDK package containing everything the customer site needs.
 
 - Domain types: `Product`, `Order`, `Cart`, `Address`, `BodegaConfig`.
 - Theme resolver: parses `.impeccable.md` → `globals.css` → tailwind → defaults.
-- Vercel Blob storage implementation with `products/orders/carts`.
-- Server components: `ProductGrid`, `ProductCard`, `ProductPage`.
-- Client components: `Cart`, `Checkout` (Stripe Payment Element),
-  `AddToCartButton`, `CartProvider`, `useCart`.
-- Next.js route handlers: `cart`, `cart-items`, `checkout`, `stripe-webhook`.
-
-### `@bodega/studio`
-
-- HMAC-signed session cookies, magic-link auth with consume-once semantics.
-- `StudioLayout` (auth gate), `StudioHome`, `LoginPage`.
-- Product CRUD pages: `ProductsPage`, `ProductEditor`.
-- Order pages: `OrdersPage`, `OrderDetail`, `MarkShippedButton`.
-- Next.js route handlers: `auth-login`, `auth-verify`, `auth-logout`,
+- Vercel Blob storage: products, orders, carts, magic-link records.
+- Storefront components (server): `ProductGrid`, `ProductCard`, `ProductPage`.
+- Storefront components (client): `Cart`, `Checkout` (Stripe Payment
+  Element), `AddToCartButton`, `CartProvider`, `useCart`.
+- Admin UI: `StudioLayout`, `StudioHome`, `LoginPage`, `ProductsPage`,
+  `ProductEditor`, `OrdersPage`, `OrderDetail`, `MarkShippedButton`.
+- Auth: HMAC-signed session cookies, magic-link auth with consume-once
+  semantics, role-scoped session helpers.
+- Next.js route handlers for every API surface: `cart`, `cart-items`,
+  `checkout`, `stripe-webhook`, `auth-login`, `auth-verify`, `auth-logout`,
   `auth-magic-link`, `products`, `orders`.
 
 ### Known limitations
@@ -63,7 +62,7 @@ stores; tested by the author's own `muddmann` build.
 
 - **Every tagged release** updates all package versions in lockstep.
 - **Plugin consumers** pin to a tag: `npx skills add mitcheman/bodega@v0.1.0`.
-- **SDK consumers** pin via npm: `@bodega/commerce@0.1.0`, `@bodega/studio@0.1.0`.
+- **SDK consumers** pin via npm: `@mitcheman/bodega@0.1.0`.
 - **Pre-1.0** minors may introduce breaking changes — upgrade one minor at a
   time and read this file.
 - **Post-1.0** (future) will follow strict SemVer: only majors break.

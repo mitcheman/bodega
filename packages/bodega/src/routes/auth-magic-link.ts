@@ -8,7 +8,7 @@
 // header when calling. Reject requests without it.
 //
 // Mount at app/api/bodega/auth/magic-link/route.ts:
-//   export { POST } from '@bodega/studio/routes/auth-magic-link';
+//   export { POST } from '@mitcheman/bodega/routes/auth-magic-link';
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { Resend } from 'resend';

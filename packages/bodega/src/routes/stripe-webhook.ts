@@ -1,7 +1,7 @@
 // Next.js route handler for Stripe webhook events.
 //
 // Mount at app/api/stripe/webhook/route.ts:
-//   export { POST } from '@bodega/commerce/routes/stripe-webhook';
+//   export { POST } from '@mitcheman/bodega/routes/stripe-webhook';
 //
 // Events handled:
 //   - payment_intent.succeeded  → create Order, decrement inventory,

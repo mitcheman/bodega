@@ -6,7 +6,7 @@
 // "check your inbox" — we don't leak whether the email is registered.
 //
 // Mount at app/api/bodega/auth/login/route.ts:
-//   export { POST } from '@bodega/studio/routes/auth-login';
+//   export { POST } from '@mitcheman/bodega/routes/auth-login';
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { Resend } from 'resend';

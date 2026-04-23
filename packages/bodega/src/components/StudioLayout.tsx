@@ -11,7 +11,7 @@ import { getSession } from '../auth/session.js';
  *
  * Usage:
  *   // app/studio/layout.tsx
- *   import { StudioLayout } from '@bodega/studio';
+ *   import { StudioLayout } from '@mitcheman/bodega';
  *   export default StudioLayout;
  */
 export default async function StudioLayout({

@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { getStorage, formatPrice } from '@bodega/commerce';
-import type { Order } from '@bodega/commerce/types';
+import { getStorage, formatPrice } from '../index.js';
+import type { Order } from '../types.js';
 
 /**
  * Studio orders list. All orders, most-recent-first.

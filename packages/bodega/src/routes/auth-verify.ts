@@ -4,7 +4,7 @@
 // token, issues a session cookie, redirects to /studio.
 //
 // Mount at app/studio/verify/route.ts:
-//   export { GET } from '@bodega/studio/routes/auth-verify';
+//   export { GET } from '@mitcheman/bodega/routes/auth-verify';
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { verifyMagicLink } from '../auth/magic-link.js';

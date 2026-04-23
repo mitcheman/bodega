@@ -1,10 +1,10 @@
 // Studio order actions.
 //
 // Mount:
-//   app/api/bodega/orders/[id]/ship/route.ts → export { POST } from '@bodega/studio/routes/orders';
+//   app/api/bodega/orders/[id]/ship/route.ts → export { POST } from '@mitcheman/bodega/routes/orders';
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { getStorage } from '@bodega/commerce';
+import { getStorage } from '../index.js';
 import { requireOwner } from '../auth/require-session.js';
 
 type RouteContext = { params: Promise<{ id: string }> };

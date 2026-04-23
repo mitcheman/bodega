@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { getStorage, formatPrice } from '@bodega/commerce';
-import type { Product } from '@bodega/commerce/types';
+import { getStorage, formatPrice } from '../index.js';
+import type { Product } from '../types.js';
 
 /**
  * Studio products list. All products, published and draft.

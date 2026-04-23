@@ -2,10 +2,10 @@
 //
 // Mount:
 //   app/api/bodega/cart/items/route.ts
-//     export { POST } from '@bodega/commerce/routes/cart-items';
+//     export { POST } from '@mitcheman/bodega/routes/cart-items';
 //
 //   app/api/bodega/cart/items/[product_id]/route.ts
-//     export { PATCH, DELETE } from '@bodega/commerce/routes/cart-items';
+//     export { PATCH, DELETE } from '@mitcheman/bodega/routes/cart-items';
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getOrCreateCart } from './cart-session.js';

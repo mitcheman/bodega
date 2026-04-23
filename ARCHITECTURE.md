@@ -6,11 +6,10 @@
 
 ## The shape
 
-Three things:
+Two things:
 
 1. **Plugin** (`source/skills/` + `scripts/` + `bin/`) — your internal bootstrap tool. Installs into Claude Code locally. Walks through `setup → hosting → payments → deploy → admin → domain → backup`. Scaffolds a full working Next.js app into a customer's project.
-2. **`@bodega/commerce`** (`packages/commerce/`) — SDK with types, theme resolver, Vercel Blob storage, storefront components (`ProductGrid`, `ProductPage`, `Cart`, `Checkout`, `AddToCartButton`), and route handlers (`cart`, `cart-items`, `checkout`, `stripe-webhook`).
-3. **`@bodega/studio`** (`packages/studio/`) — SDK with magic-link auth, session cookies, admin components (`StudioLayout`, `StudioHome`, `ProductsPage`, `ProductEditor`, `OrdersPage`, `OrderDetail`, `MarkShippedButton`, `LoginPage`), and route handlers (`auth-login`, `auth-verify`, `auth-logout`, `auth-magic-link`, `products`, `orders`).
+2. **`@mitcheman/bodega`** (`packages/bodega/`) — single SDK with everything: types, theme resolver, Vercel Blob storage, storefront components (`ProductGrid`, `ProductPage`, `Cart`, `Checkout`, `AddToCartButton`), admin components (`StudioLayout`, `StudioHome`, `ProductsPage`, `ProductEditor`, `OrdersPage`, `OrderDetail`, `MarkShippedButton`, `LoginPage`), magic-link auth + session cookies, and Next.js route handlers (`cart`, `cart-items`, `checkout`, `stripe-webhook`, `auth-login`, `auth-verify`, `auth-logout`, `auth-magic-link`, `products`, `orders`).
 
 ---
 
@@ -46,7 +45,7 @@ customer-app/
 │   │   └── stripe/webhook/              # stripe-webhook
 │   └── bodega-theme.css                 # generated from .impeccable.md tokens
 ├── .bodega.md                           # tenant config (YAML frontmatter)
-└── package.json                         # includes @bodega/commerce + @bodega/studio
+└── package.json                         # includes @mitcheman/bodega
 ```
 
 Customer storage = Vercel Blob on the customer's Vercel project. Stripe = customer's own Stripe account (vanilla, no Connect platform). Domain, SSL = customer's Vercel.

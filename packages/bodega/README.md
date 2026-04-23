@@ -1,4 +1,4 @@
-# @bodega/commerce
+# @mitcheman/bodega
 
 Commerce components for Bodega stores. Framework-agnostic React library,
 themeable via CSS custom properties so it matches whatever design the
@@ -7,7 +7,7 @@ site already has.
 ## Install
 
 ```bash
-npm install @bodega/commerce
+npm install @mitcheman/bodega
 ```
 
 Also peer-required: `react`, `react-dom`, and a Next.js 16 app (for now —
@@ -23,7 +23,7 @@ import {
   Checkout,
   CartProvider,
   useCart,
-} from '@bodega/commerce';
+} from '@mitcheman/bodega';
 ```
 
 ### `<ProductGrid />`

@@ -159,7 +159,7 @@ Expect ~15 min on an existing project, ~45 min on a greenfield one
 
 Pre-1.0, so minor versions may break things. Pin a tag if you care:
 `npx skills add mitcheman/bodega@v0.1.0`. Tagged releases publish
-`@bodega/commerce` and `@bodega/studio` to npm at the same version.
+`@mitcheman/bodega` to npm at the matching version.
 See [CHANGELOG.md](./CHANGELOG.md).
 
 ## License

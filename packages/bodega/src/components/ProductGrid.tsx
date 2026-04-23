@@ -17,7 +17,7 @@ interface ProductGridProps {
  * Usage in a Next.js app:
  *
  *   // app/shop/page.tsx
- *   import { ProductGrid } from '@bodega/commerce';
+ *   import { ProductGrid } from '@mitcheman/bodega';
  *   export default ProductGrid;
  */
 export async function ProductGrid({

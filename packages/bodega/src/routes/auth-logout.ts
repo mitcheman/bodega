@@ -3,7 +3,7 @@
 // Ends the studio session and redirects to the login page.
 //
 // Mount at app/api/bodega/auth/logout/route.ts:
-//   export { POST } from '@bodega/studio/routes/auth-logout';
+//   export { POST } from '@mitcheman/bodega/routes/auth-logout';
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { endSession } from '../auth/session.js';

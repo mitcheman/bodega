@@ -2,12 +2,12 @@
 //
 // Mount at app/api/bodega/cart/route.ts:
 //
-//   export { GET } from '@bodega/commerce/routes/cart';
+//   export { GET } from '@mitcheman/bodega/routes/cart';
 //
 // And app/api/bodega/cart/items/route.ts + [product_id]/route.ts:
 //
-//   export { POST } from '@bodega/commerce/routes/cart-items';
-//   export { PATCH, DELETE } from '@bodega/commerce/routes/cart-items';
+//   export { POST } from '@mitcheman/bodega/routes/cart-items';
+//   export { PATCH, DELETE } from '@mitcheman/bodega/routes/cart-items';
 //
 // These are scaffolded automatically by the bodega:deploy skill.
 

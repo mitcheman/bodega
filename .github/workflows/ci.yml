@@ -66,10 +66,10 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Build @bodega/commerce (workspace dep of @bodega/studio)
-        run: pnpm --filter "@bodega/commerce" build
+      - name: Build @mitcheman/bodega
+        run: pnpm --filter "@mitcheman/bodega" build
 
-      - name: Typecheck SDK packages
+      - name: Typecheck SDK package
         run: pnpm typecheck
 
   validate-skill-frontmatter:
