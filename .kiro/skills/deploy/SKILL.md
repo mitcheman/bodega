@@ -197,22 +197,102 @@ vercel env add BODEGA_ADMIN_SECRET production <<< "$BODEGA_ADMIN_SECRET"
 # From .bodega.md — business name, merchant email
 vercel env add BODEGA_STORE_NAME production <<< "<business.name>"
 vercel env add BODEGA_MERCHANT_EMAIL production <<< "<merchant.email>"
-
-# Sending domain — defaults to our shared one until the merchant
-# verifies their own domain with Resend
-vercel env add BODEGA_FROM_EMAIL production <<< "orders@bodega.my"
 ```
 
-For `RESEND_API_KEY`, ask the user:
+### Email — opt-in, not auto-defaulted
 
-> Paste your Resend API key (get one at resend.com/api-keys).
-> Free tier covers your first 100 emails/day.
+Email setup is **deliberately not auto-configured**. The previous
+default (`orders@bodega.my`) was a bug: the merchant pastes their
+own Resend API key, the code tries to send `from: orders@bodega.my`,
+and Resend rejects it because `bodega.my` isn't verified under the
+merchant's Resend account. The merchant can't verify it either —
+they don't own the domain. The first email always failed.
 
-Write it to Vercel:
+The fix is to leave `BODEGA_FROM_EMAIL` and `RESEND_API_KEY` unset
+unless the merchant explicitly configures them. The SDK detects
+their absence and runs `/studio/login` in "email disabled" mode:
+the page shows a clear inline message ("Email login isn't
+configured yet — set RESEND_API_KEY and BODEGA_FROM_EMAIL on
+Vercel and redeploy"), and any code path that tries to send
+returns `{ ok: false, reason: 'email_unconfigured' }` with an
+explicit log line.
 
+Ask the merchant:
+
+#### Simple voice:
+
+> One last thing before we deploy: do you want emails right now,
+> or set them up later?
+>
+>   a. **Set up later** (recommended for now) — your store will
+>      deploy and work for browsing, but the magic-link login for
+>      `/studio` won't actually send emails until you're ready.
+>      You can flip it on any time by adding two settings on
+>      Vercel and redeploying.
+>   b. **Set up now** — needs a Resend account
+>      (free, ~3 minutes at resend.com) and a domain you own +
+>      have verified in Resend. Use this if you've already done
+>      the verification step.
+
+#### Developer voice:
+
+> Email config: skip (recommended) or set now?
+>
+>   - skip → /studio/login renders "email unconfigured" notice;
+>     redeploy after adding RESEND_API_KEY + BODEGA_FROM_EMAIL
+>   - set now → need Resend API key + a from-address on a Resend-
+>     verified domain (typically `orders@<custom-domain>` once
+>     the domain step is done)
+
+If the user picks **skip**, write a marker to `.bodega.md` so the
+deploy summary later mentions "email setup pending" and we don't
+forget:
+
+```yaml
+state:
+  email_setup: pending
 ```
-vercel env add RESEND_API_KEY production
-```
+
+Don't write either env var. Move on to the next env-var section.
+
+If the user picks **set now**:
+
+1. Confirm the from-address belongs to a domain they've verified in
+   Resend. If not, point them at https://resend.com/domains and pause
+   until they say done.
+2. Ask for the API key:
+
+   > Paste your Resend API key (get one at resend.com/api-keys).
+   > Free tier covers ~3,000 emails/month.
+
+3. Ask for the from-address:
+
+   > What's the from-address? Must be on a domain you've verified
+   > in Resend (e.g., `orders@yourshop.com`).
+
+4. Write both to Vercel:
+
+   ```
+   vercel env add RESEND_API_KEY production
+   vercel env add BODEGA_FROM_EMAIL production <<< "<from-address>"
+   ```
+
+5. Mark in `.bodega.md`:
+
+   ```yaml
+   state:
+     email_setup: done
+   email:
+     from: orders@yourshop.com
+     resend_domain_verified: true
+   ```
+
+> **Why we don't ship a working default**: the only way to provide
+> a default that actually sends is for Bodega to operate the Resend
+> account and route every merchant's mail through it. That makes
+> Bodega a hosted service, which it explicitly is not. So the
+> trade-off is: opt-in email setup with a clear deferred path, vs.
+> a default that silently breaks. Opt-in wins.
 
 ### Site mode + shipping env vars
 
