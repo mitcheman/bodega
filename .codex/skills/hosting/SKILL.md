@@ -72,28 +72,77 @@ and proceed straight to verification.
 
 Check if current folder is already linked (`.vercel/project.json` exists).
 
-- Linked → skip creation.
-- Not linked → create.
+- Linked → read `projectId` + `orgId` from the file, skip the rest.
+- Not linked → resolve the scope, then create.
 
-### Creating:
+### 2a. Resolve the scope (required — hangs without it)
+
+`vercel link` prompts for the **team/scope** when an account has more
+than one. The `--yes` flag handles the project-creation confirmation
+but not the scope picker — without `--scope=<slug>` the command hangs
+in non-TTY/agent shells, exits cleanly, and writes nothing to
+`.vercel/`. Result: every subsequent `vercel env`, `vercel deploy`,
+`vercel blob` etc. errors with **"Your codebase isn't linked to a
+project on Vercel."**
+
+This is the most common silent-failure mode of the entire setup. Always
+resolve scope before running `vercel link`.
+
+```
+vercel teams ls --json
+```
+
+Parse the response:
+
+- **One team in the list** (the personal account) → use its `slug`.
+- **Multiple teams** → ask the user which one owns this project. Map
+  each team to a friendly label (e.g., `mitcheman (personal)`,
+  `acme-agency`) and let them pick by number.
+- **Zero teams** → impossible (the personal account always exists);
+  treat as auth failure and re-run `vercel login --github`.
+
+Cache the chosen scope for the rest of the session and write it to
+`.bodega.md` so reconfigure / standalone re-runs of hosting reuse the
+same scope.
+
+### 2b. Creating
 
 Slug from `business.name` in `.bodega.md`. Example:
 `"Mudd Mann Studio"` → `mudd-mann-studio`.
 
 ```
-vercel link --yes --project <slug>
+vercel link --yes --project <slug> --scope=<scope-slug>
 ```
 
-If slug is taken by another user, append `-1`, `-2` and retry.
+If the slug is taken under that scope, append `-1`, `-2` and retry.
+
+### 2c. Verify the link landed
+
+`vercel link` is the most-likely silent-failure step in the whole
+flow. Verify before continuing:
+
+```
+test -f .vercel/project.json || (echo "vercel link failed silently — bail" >&2; exit 1)
+vercel project inspect --json
+```
+
+If `.vercel/project.json` is missing, do not proceed to Step 3 — the
+storage-provision and env-var-add commands will all fail with
+"isn't linked to a project." Re-run Step 2a/2b with explicit `--scope`
+or surface the error to the user.
 
 ### Simple voice:
 
-> Setting up your store on Vercel — picking a name, reserving the space.
-> Give me a second.
+> Setting up your store on Vercel — picking which account it lives
+> under, then reserving the name. Give me a second.
+
+(If multi-account, ask which one to use, by number.)
 
 ### Developer voice:
 
-> `vercel link --yes --project <slug>`. If taken, suffix `-1`.
+> `vercel teams ls` → resolve scope. `vercel link --yes --project
+> <slug> --scope=<scope>`. If slug taken, suffix `-1`. Verify
+> `.vercel/project.json` exists before continuing.
 
 ## Step 3 — Provision storage
 
