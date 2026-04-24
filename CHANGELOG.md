@@ -9,7 +9,38 @@ land in a minor-version bump.
 
 ## [Unreleased]
 
-(no changes yet)
+### `vercel env add` stdin-newline footgun (real-test)
+
+CLI 52+ silently writes empty-string values when stdin closes without
+a trailing newline. The `printf "%s" "$VALUE" | vercel env add NAME`
+pattern (no `\n`) records `NAME=""` on Vercel and prints "Added"
+regardless. All six bodega secrets (`BODEGA_SESSION_SECRET`,
+`BODEGA_ADMIN_SECRET`, `STRIPE_SECRET_KEY`, etc.) silently became
+empty strings on a real-world setup pass; magic-link login then
+401-ed every request because `BODEGA_ADMIN_SECRET=""` failed the
+`!expected` check in the SDK auth route.
+
+Fixes:
+
+- **deploy/SKILL.md Step 5**: explicit footgun callout with safe-vs-
+  unsafe stdin form table. Bodega scripts already use the safe
+  `<<<` here-string form (which appends `\n`); the doc now warns
+  agents and humans not to "improve" it to `printf "%s"` /
+  `echo -n` (which both strip the newline).
+- **deploy/SKILL.md Step 5b** (new): pull-and-verify-non-empty
+  check after the env-vars block. Pulls `.env.production.local`,
+  greps for empty values among the required secret names, fails
+  loud and bails with re-add instructions if any landed empty.
+  In-memory only; deletes the file before exit either way.
+- **payments/SKILL.md Step 4b**: same pull-and-verify pattern for
+  `STRIPE_SECRET_KEY`. The previous `vercel env ls | grep` check
+  saw the name but couldn't tell if the value was empty.
+
+The SDK is already defensive — `auth-magic-link.ts` returns 401 when
+`BODEGA_ADMIN_SECRET` is empty (the existing `!expected` check
+catches it). The bug was always going to be visible at first
+magic-link request; the new verify-step catches it three minutes
+earlier, before the deploy itself.
 
 ## [0.3.0] — 2026-04-24
 

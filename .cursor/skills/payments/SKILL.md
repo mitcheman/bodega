@@ -220,14 +220,32 @@ Tell the user:
 > Tell me "done"; I'll verify with `vercel env ls` (no value
 > exposure).
 
-When they say done, verify the env var exists without printing it:
+When they say done, verify the env var exists without printing it.
+**Don't trust `vercel env ls` alone** — the CLI 52+ "Added" message
+fires even when stdin had no trailing newline and the value landed
+as an empty string. Pull-and-verify is the only reliable check:
 
 ```
-vercel env ls | grep STRIPE_SECRET_KEY
+vercel env pull .env.production.local --environment=production --yes
+if grep -qE '^STRIPE_SECRET_KEY=$' .env.production.local \
+   || grep -qE '^STRIPE_SECRET_KEY=""$' .env.production.local \
+   || ! grep -qE '^STRIPE_SECRET_KEY=' .env.production.local; then
+  echo "❌ STRIPE_SECRET_KEY is missing or empty on Vercel." >&2
+  echo "   Likely cause: stdin without trailing newline." >&2
+  echo "   Re-add via: vercel env add STRIPE_SECRET_KEY production" >&2
+  echo "   (then paste the value at the prompt — interactive form" >&2
+  echo "    always handles the newline correctly)." >&2
+  rm .env.production.local
+  exit 1
+fi
+rm .env.production.local
 ```
 
-If it shows up, you're good. If it doesn't, ask them to re-run the
-`vercel env add` in their terminal window.
+If the verify trips, the most likely cause is the user's terminal
+shell using `printf "%s"` or `echo -n` (no trailing newline) when
+piping into `vercel env add`. The interactive form
+(`vercel env add STRIPE_SECRET_KEY production`, paste at prompt,
+press Enter) always handles the newline correctly.
 
 ### Step 4c — Other env vars
 

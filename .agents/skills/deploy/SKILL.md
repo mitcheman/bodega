@@ -343,6 +343,67 @@ vercel env add BODEGA_STORE_NAME production <<< "<business.name>"
 vercel env add BODEGA_MERCHANT_EMAIL production <<< "<merchant.email>"
 ```
 
+> **`vercel env add` stdin footgun (CLI 52+).** The CLI reads stdin
+> until it sees a newline; **without a trailing newline, the value
+> is recorded as an empty string and the CLI still prints "Added"**.
+> Use one of the safe forms — never `printf "%s"` (no newline) and
+> never `echo -n`:
+>
+> | Form | Newline? | Verdict |
+> |---|---|---|
+> | `vercel env add NAME production <<< "$VALUE"` | yes (bash here-string adds one) | ✅ safe — what we use everywhere in this SKILL |
+> | `printf '%s\n' "$VALUE" \| vercel env add NAME production` | yes | ✅ safe alternative for non-bash shells |
+> | `echo "$VALUE" \| vercel env add NAME production` | yes (`echo` adds `\n`) | ✅ safe but mangles values containing backslashes |
+> | `printf '%s' "$VALUE" \| vercel env add NAME production` | NO | ❌ silently writes empty value |
+> | `echo -n "$VALUE" \| vercel env add NAME production` | NO | ❌ silently writes empty value |
+>
+> Bug filed against Vercel CLI; fix landing here is doc + a
+> verify-non-empty step (5b below) so even if a future CLI regresses,
+> the deploy bails loud instead of going to production with
+> empty-string secrets that 401 every magic-link request.
+
+### 5b. Verify secrets landed non-empty
+
+Right after the `vercel env add` block above (and before any later
+substep), pull the env values back and check that none of the secret
+ones came in empty. This catches the CLI footgun above + any future
+regressions in stdin handling.
+
+```
+vercel env pull .env.production.local --environment=production --yes
+
+# List of names that MUST be non-empty for the deploy to function:
+REQUIRED_NONEMPTY="BODEGA_SESSION_SECRET BODEGA_ADMIN_SECRET BODEGA_STORE_NAME BODEGA_MERCHANT_EMAIL"
+
+# Add the conditionals (only if these were configured):
+[ -n "$RESEND_OPT_IN" ] && REQUIRED_NONEMPTY="$REQUIRED_NONEMPTY RESEND_API_KEY BODEGA_FROM_EMAIL"
+# (Stripe + shipping vars added by their own SKILLs use the same pattern.)
+
+empty_found=""
+for name in $REQUIRED_NONEMPTY; do
+  if grep -qE "^${name}=$" .env.production.local 2>/dev/null \
+     || grep -qE "^${name}=\"\"$" .env.production.local 2>/dev/null \
+     || ! grep -qE "^${name}=" .env.production.local 2>/dev/null; then
+    empty_found="$empty_found $name"
+  fi
+done
+
+rm .env.production.local
+
+if [ -n "$empty_found" ]; then
+  echo "❌ Empty / missing env vars on Vercel:$empty_found" >&2
+  echo "   Re-add via the safe form (\`<<<\` here-string), then re-run." >&2
+  exit 1
+fi
+```
+
+If anything fires here, the most likely cause is the stdin-no-newline
+footgun above — the CLI accepted the `vercel env add` and printed
+"Added" but stored an empty string. Re-add using the safe form, then
+re-run Step 5b. Don't proceed to Step 6 with an empty
+`BODEGA_ADMIN_SECRET` — every magic-link request will 401 silently
+and the merchant won't be able to log in to `/studio`.
+
 ### Email — opt-in, not auto-defaulted
 
 Email setup is **deliberately not auto-configured**. The previous
