@@ -11,7 +11,27 @@ and warm. Never condescending.
 
 ## Pre-checks
 
-1. Read the current working directory.
+1. **Read the current working directory** and confirm it's the right
+   target with the user before doing anything else. This is critical
+   because Bodega will scaffold files into this directory.
+
+   Look at the immediate subdirectories:
+   - If 0–1 of them contain a `package.json`, the cwd is almost
+     certainly the intended project — proceed.
+   - If 2+ subdirectories contain `package.json` files, this is
+     a **workspace parent** (e.g., `~/Developer/`). Stop and ask the
+     user explicitly:
+
+     > Looks like I'm sitting in a folder that contains multiple
+     > projects (I see `<projectA>`, `<projectB>`, `<projectC>`).
+     > Bodega scaffolds into the current directory, which would be
+     > the wrong place. Which project do you want to set up? Or `cd`
+     > into one and re-run.
+
+     Wait for an answer. If they pick a subdirectory, treat that as
+     the target — but if you cannot change cwd from inside the agent,
+     tell the user to cd in themselves and re-run setup. Do not
+     assume.
 2. Check for `.bodega.md`. If it exists, this project is already set up.
    Do not continue. Say: *"This project already has Bodega set up. Run
    `/bodega:status` to see current state, or
@@ -21,12 +41,18 @@ and warm. Never condescending.
      output to the user and tell them to fix those items before
      re-running `/bodega:setup`.
    - If doctor exits zero (clean or warnings only): continue.
-4. Check for `package.json`.
+4. Check for `package.json` in the (confirmed) target directory.
    - Present → **adapt mode**. An existing project; add commerce on top.
    - Absent → **greenfield mode**. Empty folder; scaffold the site first.
 5. In adapt mode, inspect the project:
    - Framework? (We support Next.js 16. Others: best-effort.)
-   - Is there a `.impeccable.md`? (Great — the commerce SDK reads tokens from it.)
+   - Is there a `.impeccable.md`?
+     - **Present** → great. The commerce SDK reads design tokens (palette,
+       fonts, spacing) from it.
+     - **Absent** → no problem. The commerce SDK falls back to the built-in
+       Bodega tokens (cream/navy/wood watercolor palette, Newsreader +
+       Karla typography). The merchant can add `.impeccable.md` later via
+       impeccable.style and the next deploy will pick up the custom tokens.
    - Existing commerce routes (`/shop`, `/cart`, `/checkout`)? If yes, ask
      before overwriting.
 
@@ -142,27 +168,30 @@ Default to `{ mode: 'flat', cents: 500 }` if they're unsure.
 Write the config to project root. Schema at
 `.gemini/skills/setup/scripts/../reference/bodega-config.example.md`.
 
-Core shape:
+Core shape (all `<UPPERCASE>` placeholders are illustrative — replace
+with the values the user actually gave you):
 
 ```yaml
 ---
+# EXAMPLE — every `<PLACEHOLDER>` value below comes from the user's
+# answers in Step 1 and Step 2. Do not write these literal values.
 version: 1
-mode: developer              # or "simple"
-handoff: true                # if beneficiary is "someone else"
+mode: <developer|simple>     # voice from Step 1, question 1
+handoff: <true|false>        # true if beneficiary in Step 1, q2 was "someone else"
 merchant:
-  email: partner@example.com # only if handoff
+  email: <MERCHANT_EMAIL>    # only present if handoff: true
 operator:
   email: null                # filled in at hosting step
 business:
-  name: "Mudd Mann Studio"
-  kind: physical-goods       # physical-goods | digital | service
-  shipping_from: "Washington DC"
+  name: <BUSINESS_NAME>      # from Step 2b, question 4
+  kind: <physical-goods|digital|service>
+  shipping_from: <CITY_OR_DIGITAL>  # from Step 2b, question 2
   domain:
-    preference: custom       # subdomain | custom | custom-later
-    value: muddmannstudio.com
-    already_owned: false
+    preference: <subdomain|custom|custom-later>
+    value: <DOMAIN_OR_SLUG>
+    already_owned: <true|false>
   vibe: |
-    Handmade ceramics. 1970s Moroccan feel.
+    <VIBE_FREE_TEXT>         # from Step 2b, question 5
 state:
   hosting: not-started
   payments: not-started
@@ -170,7 +199,7 @@ state:
   admin: not-started
   domain: not-started
   backup: not-started
-mode_detected: adapt         # or "greenfield"
+mode_detected: <adapt|greenfield>
 ---
 ```
 

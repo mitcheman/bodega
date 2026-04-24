@@ -27,8 +27,22 @@ will install Vercel CLI if missing):
 **Project-specific** (only if a project is already present):
 - `package.json` — is this a Node project at all?
 - Framework → Next.js 16 preferred. Others: best-effort.
-- `.impeccable.md` — design context available?
+- `.impeccable.md` — design context available? (If absent, the
+  commerce SDK falls back to built-in tokens.)
 - `.bodega.md` — already set up? (setup won't clobber; reconfigure will.)
+
+**Workspace-parent detection**: if cwd has 2+ subdirectories that
+contain `package.json` files, the cwd is a workspace parent (e.g.,
+`~/Developer/`). Doctor reports this as a warning so the user knows
+they're probably in the wrong directory before setup tries to
+greenfield-scaffold over it.
+
+**Version floors** (when a tool is present, doctor checks the major
+version too):
+- `vercel` CLI: floor 50.0.0. Stale CLIs miss commands and have known
+  auth bugs. Warn (don't block) if older.
+- `gh` CLI: floor 2.40.0. Older versions miss `repo create` flags
+  bodega's backup skill uses.
 
 ## How to run
 

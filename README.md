@@ -120,17 +120,36 @@ fine. Upgrade to Pro when you go live.
 ## Install
 
 ```
-npx skills add mitcheman/bodega
+npx skills add mitcheman/bodega --yes --global
 ```
+
+The `--yes --global` flags skip the interactive multi-select picker
+(which hangs in non-TTY shells, including the ones AI coding agents
+run in). In a real terminal you can drop the flags if you want to
+pick which IDEs to install for.
 
 Pin a version:
 
 ```
-npx skills add mitcheman/bodega@v0.1.0
+npx skills add mitcheman/bodega@v0.1.0 --yes --global
 ```
 
 Pairs with [impeccable](https://impeccable.style) for design — Bodega
 offers to install it when you start from an empty folder.
+
+### After install: reload your AI
+
+Bodega is a standard Claude Code plugin — it doesn't implement live
+reload (that's the agent's job). After install, the freshly installed
+`/bodega:setup` command isn't visible to your running agent session
+until the agent rescans its plugin directory. Either:
+
+1. **Restart the agent** (close and reopen, or start a new chat
+   session). Universal — always works.
+2. **`/plugins reload`** — if your agent build supports it (newer
+   Claude Code does). Faster.
+
+If `/bodega:setup` isn't recognized after install, this is why.
 
 ## Running it
 
@@ -154,6 +173,13 @@ claude
 you like a developer, or plain English. Default is plain English.
 Expect ~15 min on an existing project, ~45 min on a greenfield one
 (most of that is design).
+
+> **Heads up if your agent is running in a parent of multiple
+> projects** (e.g. `~/Developer/`): `/bodega:doctor` and
+> `/bodega:setup` use the agent's current working directory. If the
+> agent's cwd is a workspace parent, doctor will treat the empty
+> parent as greenfield. Always `cd` into the specific project first,
+> or pick the target explicitly when setup asks.
 
 ## Versioning
 

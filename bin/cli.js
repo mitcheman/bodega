@@ -29,18 +29,87 @@ Usage:
   bodega skills                 List available skills
   bodega --help                 Show this help
 
-Most users don't need this CLI. Install via:
-  npx skills add <publisher>/bodega
+Most users install via npx skills directly:
+  npx skills add mitcheman/bodega --yes --global
 
-Then run \`/bodega:setup\` from your IDE.
+Then run \`/bodega:setup\` from your IDE (after restarting it so the
+new commands register).
 `);
 }
 
+// Detect "this looks like an AI coding agent shell" — used to decide
+// whether to default to non-interactive flags and print the restart
+// warning. Heuristics, not exhaustive — false negatives are fine,
+// false positives just mean we add safe flags + a useful warning.
+function isAgentContext() {
+  if (!process.stdout.isTTY) return true;
+  const env = process.env;
+  return Boolean(
+    env.CLAUDECODE ||
+      env.CLAUDE_CODE ||
+      env.CURSOR_AGENT ||
+      env.CODEX_CLI ||
+      env.GEMINI_CLI ||
+      env.AGENTS_CLI ||
+      env.WINDSURF_AGENT,
+  );
+}
+
+function detectAgentLabel() {
+  const env = process.env;
+  if (env.CLAUDECODE || env.CLAUDE_CODE) return 'Claude Code';
+  if (env.CURSOR_AGENT) return 'Cursor';
+  if (env.CODEX_CLI) return 'Codex';
+  if (env.GEMINI_CLI) return 'Gemini CLI';
+  if (env.WINDSURF_AGENT) return 'Windsurf';
+  if (env.AGENTS_CLI) return 'your AI coding agent';
+  if (!process.stdout.isTTY) return 'your AI coding agent';
+  return null;
+}
+
 function install() {
-  // Thin wrapper around the upstream `skills` CLI from vercel-labs.
+  // Thin wrapper around the upstream `skills` CLI.
   const target = args.find((a) => a.startsWith('--ide='))?.split('=')[1];
-  const spec = target ? `<publisher>/bodega --ide=${target}` : '<publisher>/bodega';
-  execSync(`npx skills add ${spec}`, { stdio: 'inherit' });
+  const userPassedYes = args.includes('--yes') || args.includes('-y');
+  const userPassedGlobal = args.includes('--global') || args.includes('-g');
+
+  // In an agent / non-TTY context the upstream installer's interactive
+  // multi-select picker hangs forever. Auto-add --yes --global unless
+  // the user explicitly passed them.
+  const agent = isAgentContext();
+  const flags = [];
+  if (agent && !userPassedYes) flags.push('--yes');
+  if (agent && !userPassedGlobal) flags.push('--global');
+
+  const ideFlag = target ? ` --ide=${target}` : '';
+  const flagStr = flags.length ? ' ' + flags.join(' ') : '';
+  const cmd = `npx skills add mitcheman/bodega${ideFlag}${flagStr}`;
+
+  if (agent && flags.length) {
+    console.error(
+      `[bodega] Detected non-TTY / agent context — adding ${flags.join(' ')} to skip the interactive picker.`,
+    );
+  }
+  execSync(cmd, { stdio: 'inherit' });
+
+  // Restart warning — bodega is a standard Claude Code plugin and
+  // doesn't implement live reload. Tell the user before they try
+  // /bodega:setup and find it isn't registered.
+  const agentLabel = detectAgentLabel();
+  if (agentLabel) {
+    console.error('');
+    console.error(`[bodega] Install complete.`);
+    console.error(
+      `[bodega] ${agentLabel} caches its skill registry at startup. To pick up the`,
+    );
+    console.error(
+      `[bodega] new /bodega:setup command, restart ${agentLabel} (or run`,
+    );
+    console.error(
+      `[bodega] \`/plugins reload\` if your build supports it). Then run`,
+    );
+    console.error(`[bodega] /bodega:setup (or $bodega:setup in Codex).`);
+  }
 }
 
 function listSkills() {

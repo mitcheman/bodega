@@ -9,6 +9,65 @@ land in a minor-version bump.
 
 ## [Unreleased]
 
+### Real-test fixes — install + doctor + setup hardening
+
+Triaged from a real install run that surfaced concrete blockers and
+silent footguns. All seven landed in source/skills/ + bin/cli.js +
+README. Voice-gating-downstream (#8) is intentionally deferred and
+explicitly TODO'd in CLAUDE.md.
+
+#### Install path
+
+- **bin/cli.js: TTY auto-detect.** `bodega install` now sniffs
+  `!process.stdout.isTTY` and the usual agent env vars (`CLAUDECODE`,
+  `CURSOR_AGENT`, `CODEX_CLI`, `GEMINI_CLI`, `WINDSURF_AGENT`,
+  `AGENTS_CLI`) and auto-injects `--yes --global` when running in an
+  agent context. Fixes the upstream installer's interactive
+  multi-select picker hanging forever in non-TTY shells.
+- **bin/cli.js: post-install restart warning.** When invoked from an
+  agent, `bodega install` prints a 4-line restart reminder explaining
+  the agent's skill registry is cached at startup and will not see
+  `/bodega:setup` until restart (or `/plugins reload` on builds that
+  support it).
+- **README.md: install instructions** now use `--yes --global` by
+  default with a one-line explainer + dedicated "After install: reload
+  your AI" subsection.
+
+#### Doctor
+
+- **Workspace-parent detection.** `checkProject()` now scans immediate
+  subdirectories for `package.json`. If 2+ are present, reports the
+  cwd as a workspace parent ("workspace parent — 9 subprojects
+  (ContainerCatalog, ai-assistant-app, bodega, bodega.my, dcmarket,
+  +4 more)") with an actionable fix ("cd into the specific project
+  before running setup. e.g.: cd ContainerCatalog"). Previously
+  greenfield-misclassified parent dirs.
+- **Version floors for vercel + gh CLIs.** Vercel CLI < 50 and gh CLI
+  < 2.40 now warn (don't block) with the upgrade command. Previously
+  green-checked anything that was merely present.
+
+#### Setup
+
+- **Pre-check 1 explicitly asks about target dir.** If the orchestrator
+  detects 2+ subprojects in cwd, it prompts the user for the intended
+  project before scaffolding (was: silently treated as greenfield).
+- **`.impeccable.md` fallback now spelled out.** Setup explicitly says
+  what happens when `.impeccable.md` is absent (built-in cream/navy/
+  wood watercolor tokens; merchant can add later).
+- **Example YAML uses `<UPPERCASE>` placeholders** instead of real
+  values like `Mudd Mann Studio` / `muddmannstudio.com`. An agent
+  reading the SKILL.md can no longer mistake them for defaults.
+
+#### Documentation
+
+- **README.md: heads-up about cwd footgun** added to the "Running it"
+  section.
+- **CLAUDE.md: voice gating TODO** documented as the next architectural
+  fix, with concrete steps (read `.bodega.md` mode at start of every
+  sub-skill, both voices written explicitly, voice-lint in build).
+  This is the only one of the seven test-surfaced issues that needs
+  multi-skill restructuring.
+
 ---
 
 ## [0.2.0] — 2026-04-23

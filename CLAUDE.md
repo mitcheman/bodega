@@ -74,6 +74,34 @@ If a message is user-facing and the wording differs by voice, write both
 variants explicitly. See `source/skills/payments/SKILL.md` for a good
 worked example.
 
+### TODO — voice gating is not enforced downstream
+
+Right now the orchestrator (`setup`) reads voice from the user's first
+answer and writes it to `.bodega.md`, but **sub-skills aren't gated on
+it**. If `hosting`, `payments`, `deploy`, `admin`, `domain`, or
+`backup` print developer jargon while the user picked `simple`, the
+voice rule silently breaks downstream.
+
+Fix to land before next user-facing release:
+
+1. At the start of every sub-skill, read `.bodega.md` and resolve
+   `mode`. Default to `developer` if absent (matches doctor's
+   behaviour today).
+2. Every user-facing block in the SKILL.md must have both voices
+   explicitly written, the way `payments/SKILL.md` does it.
+3. Add a voice-lint to `scripts/build.js`: scan each skill for
+   forbidden simple-voice tokens (`env vars`, `repo`, `webhook`,
+   `proxy`, `CLI`, `env file`, `Next.js`, `Tailwind`, `Workers`,
+   `npm`, `npx`, `commit`, `push`) and fail the build if a
+   simple-voice block contains any of them.
+4. (Stretch) golden-file tests per voice — fixtures of expected
+   simple-voice and developer-voice rendering for a representative
+   step in each sub-skill.
+
+Filed because the bodega.my landing now promises non-tech users
+"plain English the whole way through" and that promise has to be
+honoured at the orchestration level, not just in `setup/SKILL.md`.
+
 ## Pre-PMF scope (do not expand without discussion)
 
 - Next.js only (other frameworks: Phase 2)

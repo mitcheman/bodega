@@ -10,6 +10,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const MIN_NODE_MAJOR = 20;
+// Version floors: warn (don't block) if a tool is present but older than these.
+const MIN_VERCEL_MAJOR = 50; // current is 52.x; older versions miss commands
+const MIN_GH_MAJOR = 2;
+const MIN_GH_MINOR = 40; // older lacks `repo create --internal` and friends
 
 // ─── Voice detection ──────────────────────────────────────────────────
 
@@ -36,6 +40,30 @@ function tryCmd(cmd) {
 function parseSemver(v) {
   const m = v?.match(/(\d+)\.(\d+)\.(\d+)/);
   return m ? { major: +m[1], minor: +m[2], patch: +m[3] } : null;
+}
+
+// Return immediate subdirectory names that contain a package.json.
+// Used for workspace-parent detection in checkProject().
+function listSubProjects(dir) {
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const out = [];
+  for (const e of entries) {
+    if (!e.isDirectory()) continue;
+    if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+    try {
+      if (fs.existsSync(path.join(dir, e.name, 'package.json'))) {
+        out.push(e.name);
+      }
+    } catch {
+      // ignore unreadable subdir
+    }
+  }
+  return out.sort();
 }
 
 // ─── Individual checks ────────────────────────────────────────────────
@@ -88,30 +116,87 @@ function checkGit() {
 
 function checkVercel() {
   const v = tryCmd('vercel --version');
+  if (!v) {
+    return {
+      label: 'Vercel CLI',
+      value: 'not installed',
+      ok: false,
+      critical: false,
+      fix: 'Run: npm i -g vercel  (or the hosting skill will install it for you)',
+    };
+  }
+  const parsed = parseSemver(v);
+  if (parsed && parsed.major < MIN_VERCEL_MAJOR) {
+    return {
+      label: 'Vercel CLI',
+      value: `${v} (stale — current is ${MIN_VERCEL_MAJOR}+)`,
+      ok: false,
+      critical: false,
+      fix: `Run: npm i -g vercel@latest  (your ${parsed.major}.x is missing commands bodega uses)`,
+    };
+  }
   return {
     label: 'Vercel CLI',
-    value: v || 'not installed',
-    ok: !!v,
+    value: v,
+    ok: true,
     critical: false,
-    fix: v ? null : 'Run: npm i -g vercel  (or the hosting skill will install it for you)',
+    fix: null,
   };
 }
 
 function checkGh() {
   const v = tryCmd('gh --version');
-  const parsed = v?.split('\n')[0] || null;
+  const firstLine = v?.split('\n')[0] || null;
+  if (!v) {
+    return {
+      label: 'gh CLI (for backup)',
+      value: 'not installed',
+      ok: false,
+      critical: false,
+      fix: 'Install if you want backup: https://cli.github.com',
+    };
+  }
+  const parsed = parseSemver(firstLine);
+  if (
+    parsed &&
+    (parsed.major < MIN_GH_MAJOR ||
+      (parsed.major === MIN_GH_MAJOR && parsed.minor < MIN_GH_MINOR))
+  ) {
+    return {
+      label: 'gh CLI (for backup)',
+      value: `${firstLine} (stale — need ${MIN_GH_MAJOR}.${MIN_GH_MINOR}+)`,
+      ok: false,
+      critical: false,
+      fix: 'Upgrade gh: brew upgrade gh  (or https://cli.github.com)',
+    };
+  }
   return {
     label: 'gh CLI (for backup)',
-    value: parsed || 'not installed',
-    ok: !!v,
+    value: firstLine,
+    ok: true,
     critical: false,
-    fix: v ? null : 'Install if you want backup: https://cli.github.com',
+    fix: null,
   };
 }
 
 function checkProject() {
   const hasPackageJson = fs.existsSync('package.json');
   if (!hasPackageJson) {
+    // Workspace-parent detection: scan immediate subdirectories for
+    // package.json files. If 2+, the cwd is almost certainly a workspace
+    // parent (e.g. ~/Developer/) and "greenfield mode" is the wrong call.
+    const subprojects = listSubProjects(process.cwd());
+    if (subprojects.length >= 2) {
+      const list = subprojects.slice(0, 5).join(', ');
+      const more = subprojects.length > 5 ? `, +${subprojects.length - 5} more` : '';
+      return {
+        label: 'Project',
+        value: `workspace parent — ${subprojects.length} subprojects (${list}${more})`,
+        ok: false,
+        critical: false,
+        fix: `cd into the specific project before running setup. e.g.: cd ${subprojects[0]}`,
+      };
+    }
     return {
       label: 'Project',
       value: 'empty folder (greenfield mode)',
