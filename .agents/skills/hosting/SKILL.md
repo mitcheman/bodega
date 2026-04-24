@@ -18,6 +18,22 @@ the vercel-plugin.
 
 ## Step 1 — Sign the user in
 
+### Pick the right login mode for your context
+
+Bare `vercel login` drops into an interactive auth-method picker
+(Google / GitHub / Email / SAML), which **hangs in non-TTY shells**
+(every AI coding agent context). Pick one of these instead:
+
+| Context | Command | Why |
+|---|---|---|
+| Agent / non-TTY | `vercel login --github` | Specifies the auth method up front, opens browser device-auth, no picker. The user still authorizes in browser, but the picker step is skipped. |
+| Agent + headless CI | `VERCEL_TOKEN=<token> vercel whoami` | Skips login entirely. User pre-creates a token at vercel.com/account/tokens. |
+| Real terminal | `vercel login` | Fine — picker works in a TTY. |
+
+Auto-detect: if `process.stdout.isTTY` is false, never run bare
+`vercel login`. Default to `vercel login --github` and ask the user
+which method to use only if they push back.
+
 ### Simple voice:
 
 > First, your site needs somewhere on the internet to live. I'll use
@@ -27,24 +43,30 @@ the vercel-plugin.
 >
 > Here's what's about to happen:
 >
->   1. In a second I'll start the login. You'll see a list of options
->      right here in this window (Google, GitHub, email, etc.) — use
->      the arrow keys to pick one and hit Enter.
->   2. Your browser will open to a Vercel page showing a short code.
->      The same code will also be shown here. Click **Confirm** in the
->      browser if the codes match.
+>   1. I'll open the Vercel login in your browser. You'll see a short
+>      code on the Vercel page — the same code will be shown here.
+>      Click **Confirm** in the browser if the codes match.
+>   2. If you don't have a Vercel account yet, the same flow creates
+>      one — no separate signup. Use Google or GitHub for the fastest
+>      path; tell me if you'd rather use email.
 >   3. Come back here and say "done" when the browser tells you
 >      "You are now logged in."
->
-> If you don't have a Vercel account yet, the same flow creates one —
-> no separate signup.
 
 ### Developer voice:
 
-> `vercel login` — pick auth method, confirm in browser. Waiting.
+> `vercel login --github` (non-TTY-safe; bare `vercel login` hangs
+> on the auth-method picker in agent shells). Browser device-auth.
+> `vercel whoami` to verify.
+>
+> Headless alternative: set `VERCEL_TOKEN` env var; skip login entirely.
 
-Run `vercel login`. Wait for confirmation. Verify with `vercel whoami`.
-Capture the Vercel account email as `operator.email` in `.bodega.md`.
+Run `vercel login --github` (or `--email <addr>`, `--gitlab`,
+`--bitbucket`, `--saml` per the user's preference). Wait for browser
+confirmation. Verify with `vercel whoami`. Capture the Vercel account
+email as `operator.email` in `.bodega.md`.
+
+If `VERCEL_TOKEN` is already set in env, skip the login step entirely
+and proceed straight to verification.
 
 ## Step 2 — Create or link a project
 
@@ -75,13 +97,38 @@ If slug is taken by another user, append `-1`, `-2` and retry.
 
 ## Step 3 — Provision storage
 
-One blob store for products and images:
+One Vercel Blob store for products and images. The CLI surface for
+storage shifted in CLI 50+; old `vercel storage create --type blob`
+syntax is gone. Use the current Blob-specific commands:
 
 ```
-vercel storage create --type blob --name bodega-store
+# Create the blob store (idempotent — checks for existing first)
+vercel blob store add bodega-store
 ```
 
-Attach to the project. Auto-creates `BLOB_READ_WRITE_TOKEN` env var.
+Attach the store to the linked project so `BLOB_READ_WRITE_TOKEN`
+auto-provisions on the project's env:
+
+```
+vercel blob store connect bodega-store
+```
+
+Verify the env var landed:
+
+```
+vercel env ls | grep BLOB_READ_WRITE_TOKEN
+```
+
+If for any reason the auto-attach failed, the user can manually link
+in the Vercel dashboard (Storage → bodega-store → Connect Project).
+Don't proceed to deploy without the token in env or `app/api/bodega/upload`
+will 500.
+
+> **Verify against `vercel --version` first.** This SKILL.md targets
+> Vercel CLI 50+. If the user's CLI is older (doctor warns about this)
+> upgrade them with `npm i -g vercel@latest` before running storage
+> commands — the older CLIs accept different subcommand shapes and
+> will fail or worse, succeed with the wrong defaults.
 
 ### Simple voice:
 

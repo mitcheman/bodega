@@ -19,6 +19,24 @@ Read `.bodega.md`. Require `state.admin: done`.
 >
 >   a. Resend my [partner's] login link (they forgot it)
 >   b. Invite someone new (staff: packer, product-editor, etc.)
+>   c. Remove a staff member (revoke their access)
+
+## All paths use the admin-protected magic-link endpoint
+
+The SDK's `/api/bodega/auth/magic-link` endpoint is admin-protected —
+it requires the `BODEGA_ADMIN_SECRET` value (provisioned during deploy)
+in the `x-bodega-admin-secret` header. Without it, the endpoint
+returns `403`.
+
+Pull the secret in-memory at the start of the skill, use it for any
+calls in this run, and `rm` the env file at the end:
+
+```
+vercel env pull .env.production.local --environment=production
+# Use BODEGA_ADMIN_SECRET in-memory; never echo
+# ... (all magic-link / staff calls below) ...
+rm .env.production.local
+```
 
 ## Step 2a — Resend magic link
 
@@ -31,7 +49,11 @@ Generate a fresh magic link via the SDK:
 
 ```
 POST https://<url>/api/bodega/auth/magic-link
-{ "email": "<target>", "role": "owner" }
+Headers:
+  Content-Type: application/json
+  x-bodega-admin-secret: <BODEGA_ADMIN_SECRET>
+Body:
+  { "email": "<target>", "role": "owner" }
 ```
 
 Send the email. Confirm:
@@ -58,11 +80,16 @@ Ask for their email:
 
 > Their email?
 
-Generate a staff magic link with the right role scope:
+Generate a staff magic link with the right role scope (same admin
+header as Step 2a):
 
 ```
 POST https://<url>/api/bodega/auth/magic-link
-{ "email": "<staff-email>", "role": "packer" | "product-editor" | "manager" }
+Headers:
+  Content-Type: application/json
+  x-bodega-admin-secret: <BODEGA_ADMIN_SECRET>
+Body:
+  { "email": "<staff-email>", "role": "packer" | "product-editor" | "manager" }
 ```
 
 Send a different email template (welcome-staff, not welcome-owner).
@@ -77,14 +104,57 @@ admin:
       invited_at: 2026-04-22T15:00:00Z
 ```
 
+## Step 2c — Remove a staff member
+
+List existing staff from `.bodega.md` → `admin.staff[]`:
+
+> Who do you want to remove?
+>
+>   1. packer@example.com (packer)
+>   2. friend@example.com (product-editor)
+>   3. ... (none if no staff yet)
+
+Pick by number or email. Owners cannot be removed via this skill —
+that's a settings-page operation in `/studio`. Refuse politely if the
+user picks the owner.
+
+Revoke via the SDK:
+
+```
+DELETE https://<url>/api/bodega/auth/staff/<staff-email>
+Headers:
+  x-bodega-admin-secret: <BODEGA_ADMIN_SECRET>
+```
+
+Update `.bodega.md`:
+
+```yaml
+admin:
+  staff:
+    # remove the matching entry
+  removed:
+    - email: packer@example.com
+      role: packer
+      removed_at: 2026-04-23T10:00:00Z
+```
+
+Confirm:
+
+### Simple voice:
+
+> ✓ Removed [email]. Their login link no longer works. If they're in
+> /studio right now, they'll be kicked to the login page on their next
+> click.
+
+### Developer voice:
+
+> ✓ Revoked <email>. Existing session invalidated server-side.
+
 ## Step 3 — Confirm
 
 ### Simple voice:
 
 > ✓ Invited [name/email] as [role]. They'll get an email in a minute.
->
-> If you want to remove someone later, run `/bodega:invite`
-> again and I'll walk through it.
 
 ### Developer voice:
 

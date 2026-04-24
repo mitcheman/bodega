@@ -186,9 +186,11 @@ Before deploying, the SDK needs these env vars on Vercel. Provision
 them all in one pass:
 
 ```
-# Generate two secrets (auto — don't ask the user)
-BODEGA_SESSION_SECRET=$(openssl rand -base64 32)
-BODEGA_ADMIN_SECRET=$(openssl rand -base64 32)
+# Generate two secrets — use Node, not openssl. openssl isn't
+# guaranteed on locked-down Windows / corporate images; node is a
+# bodega prereq so it's always present.
+BODEGA_SESSION_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('base64'))")
+BODEGA_ADMIN_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('base64'))")
 
 vercel env add BODEGA_SESSION_SECRET production <<< "$BODEGA_SESSION_SECRET"
 vercel env add BODEGA_ADMIN_SECRET production <<< "$BODEGA_ADMIN_SECRET"
@@ -246,29 +248,72 @@ state:
   env_vars_provisioned: true
 ```
 
-## Step 6 — Register the Stripe webhook
+## Step 6 — Register the Stripe webhook (idempotent)
 
-With the production URL known, register with Stripe:
+With the production URL known, register with Stripe. **This step is
+re-run on every `/bodega:deploy`** (deploys can be
+invoked standalone for updates), so it MUST be idempotent — otherwise
+each redeploy creates a duplicate webhook and Stripe fires every event
+N times to the same endpoint.
 
 ```
-vercel env pull .env.production.local
-# Use STRIPE_SECRET_KEY to call Stripe's webhooks API
+vercel env pull .env.production.local --environment=production
+# In-memory only. Use STRIPE_SECRET_KEY to call Stripe's webhooks API.
+# rm .env.production.local at end of step.
 ```
 
-Create a webhook at Stripe pointing to:
+The intended endpoint URL:
 `https://<production-url>/api/stripe/webhook`
 
-Subscribe to:
+The intended event subscription:
 - `payment_intent.succeeded`
 - `payment_intent.payment_failed`
 - `charge.refunded`
 - `account.updated`
 
-Store webhook signing secret as `STRIPE_WEBHOOK_SECRET`:
+### Idempotent upsert pattern
 
-```
-vercel env add STRIPE_WEBHOOK_SECRET production
-```
+1. **List existing webhooks**:
+
+   ```
+   GET https://api.stripe.com/v1/webhook_endpoints
+   Authorization: Bearer <STRIPE_SECRET_KEY>
+   ```
+
+2. **Look for one whose `url` matches the intended endpoint URL** (full
+   exact match — both URL and the host the webhook was registered for).
+
+3. **If a match exists**:
+   - Compare `enabled_events` against the intended list.
+   - If they match exactly → done. Skip create.
+   - If they differ → `POST /v1/webhook_endpoints/<id>` with the new
+     `enabled_events` to update in place. Reuse the existing
+     `STRIPE_WEBHOOK_SECRET` from Vercel env (the secret is bound to
+     the webhook ID, not regenerated on update).
+
+4. **If no match exists** → create a new one:
+
+   ```
+   POST https://api.stripe.com/v1/webhook_endpoints
+   { "url": "<endpoint>", "enabled_events": [...] }
+   ```
+
+   The response includes a one-time `secret` value — write it to
+   Vercel env:
+
+   ```
+   vercel env add STRIPE_WEBHOOK_SECRET production <<< "<secret>"
+   ```
+
+5. **Clean up**: `rm .env.production.local` at end of step.
+
+### Why this matters
+
+Without the upsert: each `bodega:deploy` POSTs a new webhook. After
+3 redeploys, the merchant gets 3 `payment_intent.succeeded` events
+per real payment → 3 fulfilment attempts → duplicate orders or
+Stripe-side double-counting in reports. Customers notice when their
+order confirmation email arrives 3 times.
 
 ## Step 7 — Deploy
 

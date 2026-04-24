@@ -22,10 +22,42 @@ hand off.
 
 Use the SDK's `createMagicLink` server function. Link TTL: 24 hours.
 
+The `/api/bodega/auth/magic-link` endpoint is **admin-protected**:
+it requires the `BODEGA_ADMIN_SECRET` value (provisioned during
+`/bodega:deploy` Step 5) in the
+`x-bodega-admin-secret` header. Without the header, the endpoint
+returns `403`. This prevents anyone from spamming magic links to
+arbitrary emails.
+
+Read the secret from Vercel env (don't print the value):
+
+```
+vercel env pull .env.production.local --environment=production
+# Use BODEGA_ADMIN_SECRET in-memory only; don't echo
+```
+
+Then call the endpoint:
+
 ```
 POST https://<url>/api/bodega/auth/magic-link
-{ "email": "<merchant.email>", "role": "owner" }
+Headers:
+  Content-Type: application/json
+  x-bodega-admin-secret: <BODEGA_ADMIN_SECRET>
+Body:
+  { "email": "<merchant.email>", "role": "owner" }
 ```
+
+Delete `.env.production.local` immediately after the call so the
+secret doesn't sit on disk:
+
+```
+rm .env.production.local
+```
+
+> **If you call the endpoint without the header**, you'll get
+> `403 forbidden`. That's the intended behaviour — the magic-link
+> endpoint is not meant to be public, and merchants would be vulnerable
+> to spam if it were.
 
 ## Step 2 — Send the welcome email
 

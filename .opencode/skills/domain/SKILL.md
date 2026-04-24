@@ -37,6 +37,25 @@ vercel domains inspect <domain>
 
 Show the user the DNS records they need to add at their registrar:
 
+### A note on DNS notation
+
+The "Name" field for the apex record varies by registrar — there is
+no universal convention. Tell the merchant which form their provider
+expects:
+
+| Provider | Apex "Name" field accepts | What to type |
+|---|---|---|
+| GoDaddy, Namecheap, IONOS, Hover | `@` | `@` |
+| Cloudflare | bare domain or empty | `muddmannstudio.com` (Cloudflare auto-truncates) |
+| Squarespace / Google Domains | empty or `@` | leave empty |
+| Bluehost, HostGator | `@` or domain | either works |
+| Porkbun | `@` | `@` |
+| AWS Route 53 | bare domain | `muddmannstudio.com` |
+
+When in doubt, the bare domain form (`muddmannstudio.com`) is the
+most universally accepted; `@` is shorthand that most but not all
+registrars expand to the apex.
+
 ### Simple voice:
 
 > To connect your domain, you'll add two small records at wherever you
@@ -45,11 +64,12 @@ Show the user the DNS records they need to add at their registrar:
 > domain, send them to this store."
 >
 > Log in at your domain provider and find the section labeled **DNS**,
-> **DNS settings**, or **Manage DNS**. Add these two rows, exactly as
-> shown:
+> **DNS settings**, or **Manage DNS**. Add these two rows. The
+> "Name" field varies by provider — use whichever form yours accepts:
 >
 >     Type: A
->     Name: @
+>     Name: @          (or your bare domain like muddmannstudio.com,
+>                       or leave empty — depends on the provider)
 >     Value: 76.76.21.21
 >
 >     Type: CNAME
@@ -63,9 +83,10 @@ Show the user the DNS records they need to add at their registrar:
 
 ### Developer voice:
 
-> DNS records:
->   A     @     76.76.21.21
->   CNAME www   cname.vercel-dns.com
+> DNS records (Name field varies by registrar — `@`, bare domain, or
+> empty depending on provider):
+>   A     @ | <domain> | (empty)     76.76.21.21
+>   CNAME www                         cname.vercel-dns.com
 >
 > Re-run `/bodega:domain` to verify after propagation.
 

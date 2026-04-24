@@ -44,6 +44,21 @@ developers. In developer voice, calls it what it is.
 
 ## Step 2a — User said yes, authenticate with GitHub
 
+### Pick the right login mode for your context
+
+Bare `gh auth login` drops into an interactive picker (account host,
+auth method, protocol). **It hangs in non-TTY shells.** Always pass
+the flags up front:
+
+| Context | Command | Why |
+|---|---|---|
+| Agent / non-TTY | `gh auth login --web --hostname github.com --git-protocol https` | All choices specified; only the browser device-auth code is interactive |
+| Headless CI | `GH_TOKEN=<token> gh auth status` | Skips login. User pre-creates a token at github.com/settings/tokens (`repo` + `read:org` scopes). |
+| Real terminal | `gh auth login` | Picker works fine in a TTY. |
+
+If `process.stdout.isTTY` is false, never run bare `gh auth login`.
+If `GH_TOKEN` is set in env, skip login entirely.
+
 ### Simple voice:
 
 > Ok. This is your first time signing into GitHub (different from
@@ -51,20 +66,24 @@ developers. In developer voice, calls it what it is.
 >
 > Here's the flow:
 >
->   1. In a second I'll start the login. You'll pick a sign-in method
->      here in this window (arrow keys + Enter).
->   2. Your browser will open to GitHub. If you already have an account,
->      sign in. If you don't, it'll walk you through creating one —
->      pick a username, verify your email. Takes a couple of minutes.
->   3. GitHub will ask to authorize a small command-line tool; click
+>   1. I'll open the GitHub login in your browser. There'll be a short
+>      code on the GitHub page — the same code will be shown here.
+>      Sign in (or create an account — pick a username, verify email,
+>      ~2 minutes), then enter the code on the GitHub page.
+>   2. GitHub will ask to authorize a small command-line tool; click
 >      **Authorize**.
->   4. Come back here and say "done" when GitHub says you're signed in.
+>   3. Come back here and say "done" when GitHub says you're signed in.
 
 ### Developer voice:
 
-> `gh auth login --web --git-protocol https`. Waiting.
+> `gh auth login --web --hostname github.com --git-protocol https`
+> (non-TTY-safe; bare `gh auth login` hangs on the picker in agent
+> shells). Browser device-auth. `gh auth status` to verify.
+>
+> Headless alternative: set `GH_TOKEN` (scopes: `repo`, `read:org`);
+> skip login.
 
-Run `gh auth login`. Wait for confirmation. Verify with `gh auth status`.
+Run the full-flag form. Wait for confirmation. Verify with `gh auth status`.
 
 ## Step 3 — Ask about GitHub account or org
 
@@ -87,34 +106,64 @@ which one:
 >   2. [org 2]
 >   3. [org 3]
 
-## Step 4 — Create the private repo
+## Step 4 — Initialize git + create the private repo
 
-Repo name from `business.name` slug. Example: `mudd-mann-studio`.
+**Order matters.** `gh repo create --source=.` requires an existing
+`.git` directory; if you call it on a fresh project (no `.git` yet) it
+errors out. So `git init` always runs first.
 
-```
-gh repo create <owner>/<slug> --private --source=. --description "Mudd Mann Studio — handmade ceramics store"
-```
-
-If the repo name is taken under that owner, append `-store` or ask the
-user for an alternative.
-
-## Step 5 — Initial commit + push
+### 4a. Initialize git if needed
 
 If no `.git` directory exists yet:
 
 ```
 git init
+git checkout -b main      # avoid the legacy `master` default
 git add .
 git commit -m "Initial commit via Bodega"
-git branch -M main
-git remote add origin https://github.com/<owner>/<slug>.git
-git push -u origin main
 ```
 
-If `.git` already exists (user had it), just add remote + push:
+If `.git` already exists (user had it), skip this — but verify there's
+at least one commit on the current branch (`git rev-parse HEAD` must
+succeed). If the working tree is dirty with uncommitted changes, ask
+the user before continuing.
+
+### 4b. Create the private repo on GitHub
+
+Repo name from `business.name` slug. Example: `mudd-mann-studio`.
 
 ```
-git remote add origin https://github.com/<owner>/<slug>.git
+gh repo create <owner>/<slug> \
+  --private \
+  --source=. \
+  --remote=origin \
+  --push \
+  --description "<business.name> — store"
+```
+
+Flags explained:
+- `--source=.` — use the current dir's git repo (now safe because
+  Step 4a ran)
+- `--remote=origin` — auto-add the remote as `origin`
+- `--push` — push the current branch immediately
+
+If the repo name is taken under that owner, `gh` returns a clear
+error. Append `-store` or ask the user for an alternative and retry.
+
+## Step 5 — Confirm push (or push manually if Step 4b didn't auto-push)
+
+After Step 4b, the current branch should already be on the remote.
+Verify with:
+
+```
+git remote -v          # should show origin → github.com/<owner>/<slug>
+git rev-parse @{upstream}  # should resolve cleanly
+```
+
+If for any reason `--push` was skipped (older `gh` versions, custom
+flow), do the push manually:
+
+```
 git push -u origin main
 ```
 

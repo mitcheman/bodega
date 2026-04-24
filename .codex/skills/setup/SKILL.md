@@ -200,9 +200,17 @@ state:
   admin: not-started
   domain: not-started
   backup: not-started
-mode_detected: <adapt|greenfield>
+initial_mode: <adapt|greenfield>  # immutable record of what was true at first run
+mode: <adapt|greenfield>          # mutable; flips to "adapt" after greenfield-design completes
 ---
 ```
+
+**Why two fields**: `initial_mode` is set once at first setup and never
+changes — it tells you forever whether the project started empty or
+existed. `mode` is the live state and flips to `adapt` after
+`greenfield-design` runs, so subsequent skills know there's a project
+to work with. Don't conflate the two; debugging "why did this go
+greenfield?" is much easier when the original detection is preserved.
 
 Confirm in chosen voice:
 - **developer**: `✓ Config written to .bodega.md`
@@ -213,8 +221,9 @@ Confirm in chosen voice:
 ### Greenfield mode:
 
 Invoke `$bodega:greenfield-design`. Wait for completion.
-On return, update `.bodega.md` → `mode_detected: adapt` (a project now
-exists). Continue to Step 5.
+On return, update `.bodega.md` → `mode: adapt` (a project now
+exists). **Do NOT touch `initial_mode`** — it stays `greenfield`
+forever as the historical record. Continue to Step 5.
 
 ### Adapt mode:
 

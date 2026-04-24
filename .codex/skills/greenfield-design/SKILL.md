@@ -23,7 +23,10 @@ Check if `impeccable` is available as a skill in the current IDE.
 
 ### Developer voice:
 
-> Impeccable not installed. Installing: `npx skills add pbakaus/impeccable`.
+> Impeccable not installed. Installing:
+> `npx skills add pbakaus/impeccable --yes --global`
+> (the `--yes --global` flags skip the upstream installer's
+> interactive multi-select picker, which hangs in non-TTY shells).
 
 ### Simple voice:
 
