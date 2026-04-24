@@ -9,6 +9,9 @@ land in a minor-version bump.
 
 ## [Unreleased]
 
+(no changes yet)
+
+## [0.3.1] — 2026-04-24
 ### StudioLayout — site-mode-aware nav (real-test polish)
 
 `StudioLayout` rendered the same three nav links — Home / Products /
