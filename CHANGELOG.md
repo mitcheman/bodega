@@ -9,6 +9,65 @@ land in a minor-version bump.
 
 ## [Unreleased]
 
+### Validation findings — round 6
+
+Two real issues surfaced during validation of the round-5 doc fix.
+
+#### Regression — `vercel env pull` doesn't decrypt on CLI 52+
+
+The Step 5b "verify-non-empty" check shipped earlier in [Unreleased]
+used `vercel env pull` to fetch `.env.production.local` and grep for
+empty values. This false-positive-fires on Vercel CLI 52+: the pull
+writes the file but does **not** decrypt encrypted/sensitive values
+to disk — the values exist only on the runtime. So the verify would
+report all secrets as empty even when they were correctly set,
+causing the deploy to bail unnecessarily.
+
+Fixes:
+
+- **deploy/SKILL.md Step 5b** — replaced pull-and-grep with a
+  presence-only check via `vercel env ls production --json` that
+  confirms each required env-var name appears in the project (catches
+  the never-added case but, by design, can't catch the empty-value
+  case — see Step 7.5 for the reliable verify).
+- **payments/SKILL.md Step 4b** — same revert; uses
+  `vercel env ls production` for name-presence only, with explicit
+  doc that value-emptiness can't be checked from the CLI on 52+.
+- **deploy/SKILL.md Step 7.5 (new)** — the actual reliable verify is
+  a post-deploy smoke test that hits the live `/api/bodega/auth/
+  magic-link` endpoint with the in-memory `BODEGA_ADMIN_SECRET`. The
+  HTTP response classifies the failure precisely:
+  - `200` → secret + storage both good
+  - `401` → `BODEGA_ADMIN_SECRET` empty/wrong on Vercel (re-add via
+    `<<<` here-string, redeploy)
+  - `503` → infrastructure unconfigured (most often
+    `BLOB_READ_WRITE_TOKEN` missing — connect blob store, redeploy)
+  - other → check `vercel logs <deploy-url>`
+
+#### SDK — opaque 500s when blob storage isn't configured
+
+The admin endpoint (`POST /api/bodega/auth/magic-link`) was throwing
+a generic 500 when `BLOB_READ_WRITE_TOKEN` was missing — the
+underlying `blob-storage.ts` `token()` function throws "is not set"
+inside `createMagicLink()`, which Next bubbled up as 500 with no
+useful body. Hard for the operator to diagnose.
+
+Fixes (in `packages/bodega/src/routes/`):
+
+- **auth-magic-link.ts** — pre-flight check for
+  `BLOB_READ_WRITE_TOKEN`. Missing → `503` with
+  `{ message: "Storage is not configured (BLOB_READ_WRITE_TOKEN
+  missing). Run \`vercel blob store connect <store-name>\` and
+  redeploy.", reason: "storage_unconfigured" }`. Storage layer
+  errors during `createMagicLink()` → `502` with the underlying
+  message + `reason: "storage_error"`. Both surfaced by the new
+  Step 7.5 smoke test for actionable operator output.
+- **auth-login.ts** — same pre-flight, but on this public endpoint
+  the failure is logged server-side (`vercel logs`) and the response
+  stays the constant anti-enumeration message. The operator sees the
+  problem in logs without leaking infrastructure state to the
+  public.
+
 ### `vercel env add` stdin-newline footgun (real-test)
 
 CLI 52+ silently writes empty-string values when stdin closes without

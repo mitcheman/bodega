@@ -49,11 +49,26 @@ export async function POST(req: NextRequest) {
     return ok;
   }
 
+  // Storage pre-flight. Same anti-enumeration response on failure —
+  // public callers must not learn whether the email is registered or
+  // whether infrastructure is broken. Log loud server-side so the
+  // operator can debug from `vercel logs`.
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    console.error(
+      '[bodega auth] login attempted but BLOB_READ_WRITE_TOKEN missing. ' +
+        'Run `vercel blob store connect <store-name>` and redeploy.',
+    );
+    return ok;
+  }
+
   const storage = getMagicLinkStorage();
-  const record = await createMagicLink(
-    { email, role: 'owner' },
-    storage,
-  );
+  let record;
+  try {
+    record = await createMagicLink({ email, role: 'owner' }, storage);
+  } catch (err) {
+    console.error('[bodega auth] storage failed during createMagicLink:', err);
+    return ok;
+  }
 
   const origin = new URL(req.url).origin;
   const verifyUrl = `${origin}/studio/verify?token=${record.token}`;

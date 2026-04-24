@@ -220,32 +220,27 @@ Tell the user:
 > Tell me "done"; I'll verify with `vercel env ls` (no value
 > exposure).
 
-When they say done, verify the env var exists without printing it.
-**Don't trust `vercel env ls` alone** — the CLI 52+ "Added" message
-fires even when stdin had no trailing newline and the value landed
-as an empty string. Pull-and-verify is the only reliable check:
+When they say done, verify the env var name appears in the project:
 
 ```
-vercel env pull .env.production.local --environment=production --yes
-if grep -qE '^STRIPE_SECRET_KEY=$' .env.production.local \
-   || grep -qE '^STRIPE_SECRET_KEY=""$' .env.production.local \
-   || ! grep -qE '^STRIPE_SECRET_KEY=' .env.production.local; then
-  echo "❌ STRIPE_SECRET_KEY is missing or empty on Vercel." >&2
-  echo "   Likely cause: stdin without trailing newline." >&2
-  echo "   Re-add via: vercel env add STRIPE_SECRET_KEY production" >&2
-  echo "   (then paste the value at the prompt — interactive form" >&2
-  echo "    always handles the newline correctly)." >&2
-  rm .env.production.local
-  exit 1
-fi
-rm .env.production.local
+vercel env ls production | grep -q '^STRIPE_SECRET_KEY\b' \
+  || { echo "❌ STRIPE_SECRET_KEY missing on Vercel."; exit 1; }
 ```
 
-If the verify trips, the most likely cause is the user's terminal
-shell using `printf "%s"` or `echo -n` (no trailing newline) when
-piping into `vercel env add`. The interactive form
-(`vercel env add STRIPE_SECRET_KEY production`, paste at prompt,
-press Enter) always handles the newline correctly.
+> **Can't verify the value isn't empty here.** On Vercel CLI 52+,
+> `vercel env pull` does not decrypt encrypted/sensitive values to
+> disk — there's no way to read the value back from the CLI to
+> confirm it's non-empty. A `vercel env ls` row for a name with an
+> empty value looks identical to a row for a name with a real value.
+>
+> The safe path: use the **interactive form** of `vercel env add`
+> (paste at the prompt, press Enter) which handles the trailing
+> newline correctly. Avoid `printf "%s" "$VALUE" \| vercel env add`
+> and `echo -n "$VALUE" \| vercel env add` — both strip the newline
+> and silently write empty strings (CLI prints "Added" regardless).
+> The deploy SKILL's post-deploy smoke test (Step 7.5) catches
+> empty `STRIPE_SECRET_KEY` because the first webhook registration
+> attempt 401s against Stripe.
 
 ### Step 4c — Other env vars
 

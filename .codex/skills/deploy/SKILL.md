@@ -362,47 +362,40 @@ vercel env add BODEGA_MERCHANT_EMAIL production <<< "<merchant.email>"
 > the deploy bails loud instead of going to production with
 > empty-string secrets that 401 every magic-link request.
 
-### 5b. Verify secrets landed non-empty
+### 5b. Verify secrets are at least named on the project
 
-Right after the `vercel env add` block above (and before any later
-substep), pull the env values back and check that none of the secret
-ones came in empty. This catches the CLI footgun above + any future
-regressions in stdin handling.
+Quick check that each required env var name appears in the project's
+production env. This catches the case where `vercel env add` wasn't
+run at all — but it does NOT catch the empty-value case (a `NAME=""`
+value still appears as a name in `vercel env ls`).
 
 ```
-vercel env pull .env.production.local --environment=production --yes
+NAMES_PRESENT=$(vercel env ls production --json 2>/dev/null | jq -r '.[].key' 2>/dev/null || vercel env ls production 2>/dev/null | awk '{print $1}')
+REQUIRED="BODEGA_SESSION_SECRET BODEGA_ADMIN_SECRET BODEGA_STORE_NAME BODEGA_MERCHANT_EMAIL"
+[ -n "$RESEND_OPT_IN" ] && REQUIRED="$REQUIRED RESEND_API_KEY BODEGA_FROM_EMAIL"
 
-# List of names that MUST be non-empty for the deploy to function:
-REQUIRED_NONEMPTY="BODEGA_SESSION_SECRET BODEGA_ADMIN_SECRET BODEGA_STORE_NAME BODEGA_MERCHANT_EMAIL"
-
-# Add the conditionals (only if these were configured):
-[ -n "$RESEND_OPT_IN" ] && REQUIRED_NONEMPTY="$REQUIRED_NONEMPTY RESEND_API_KEY BODEGA_FROM_EMAIL"
-# (Stripe + shipping vars added by their own SKILLs use the same pattern.)
-
-empty_found=""
-for name in $REQUIRED_NONEMPTY; do
-  if grep -qE "^${name}=$" .env.production.local 2>/dev/null \
-     || grep -qE "^${name}=\"\"$" .env.production.local 2>/dev/null \
-     || ! grep -qE "^${name}=" .env.production.local 2>/dev/null; then
-    empty_found="$empty_found $name"
-  fi
+missing=""
+for name in $REQUIRED; do
+  echo "$NAMES_PRESENT" | grep -qx "$name" || missing="$missing $name"
 done
 
-rm .env.production.local
-
-if [ -n "$empty_found" ]; then
-  echo "❌ Empty / missing env vars on Vercel:$empty_found" >&2
-  echo "   Re-add via the safe form (\`<<<\` here-string), then re-run." >&2
+if [ -n "$missing" ]; then
+  echo "❌ Missing env vars on Vercel:$missing" >&2
+  echo "   Run the matching \`vercel env add\` from Step 5 above." >&2
   exit 1
 fi
 ```
 
-If anything fires here, the most likely cause is the stdin-no-newline
-footgun above — the CLI accepted the `vercel env add` and printed
-"Added" but stored an empty string. Re-add using the safe form, then
-re-run Step 5b. Don't proceed to Step 6 with an empty
-`BODEGA_ADMIN_SECRET` — every magic-link request will 401 silently
-and the merchant won't be able to log in to `/studio`.
+> **Why no value-emptiness check here?** On Vercel CLI 52+,
+> `vercel env pull` writes the file but does **not** decrypt
+> "Encrypted" or "Sensitive" values to disk — they only exist on
+> the runtime. So `grep '^NAME=$'` on the pulled file would false-
+> positive even when the value is correctly set. A previous version
+> of this SKILL pulled-and-grepped here; that check was removed
+> because it falsely reported real values as empty. The correct
+> place to verify the secrets actually function is the post-deploy
+> smoke test in Step 7.5 (live request against the magic-link
+> endpoint — 200/503 = secret good, 401 = secret empty).
 
 ### Email — opt-in, not auto-defaulted
 
@@ -698,6 +691,74 @@ On failure, surface the error in chosen voice.
 | `413 / Request Entity Too Large` | "Your project is too big to upload directly. Switching to a smaller bundle and trying again." (then retry with `vercel build --prod && vercel deploy --prebuilt --prod`) |
 
 Retry once with the fix. Second failure → stop and ask for help.
+
+## Step 7.5 — Post-deploy smoke test
+
+This is the reliable verify. After the deploy lands, hit the live
+admin endpoint with the in-memory `BODEGA_ADMIN_SECRET` from Step 5
+(don't try to pull it back from Vercel — see the Step 5b note about
+CLI 52 not decrypting). The endpoint's response tells us whether
+each piece of infrastructure is wired correctly:
+
+```
+URL="https://<deploy-url>/api/bodega/auth/magic-link"
+
+response=$(curl -sS -o /tmp/bodega-smoke.json -w "%{http_code}" \
+  -X POST "$URL" \
+  -H "Content-Type: application/json" \
+  -H "x-bodega-admin-secret: $BODEGA_ADMIN_SECRET" \
+  -d "{\"email\":\"<merchant.email>\",\"role\":\"owner\"}")
+
+case "$response" in
+  200)
+    # Success — magic link minted (and emailed if Resend configured).
+    # Discard the response; don't print the verify_url to chat.
+    rm -f /tmp/bodega-smoke.json
+    echo "✓ smoke test: magic-link endpoint OK"
+    ;;
+  401)
+    echo "❌ 401 — BODEGA_ADMIN_SECRET on Vercel doesn't match the value Step 5 generated." >&2
+    echo "   Most likely cause: stdin without trailing newline (printf %s / echo -n)." >&2
+    echo "   Fix: vercel env rm BODEGA_ADMIN_SECRET production --yes" >&2
+    echo "        vercel env add BODEGA_ADMIN_SECRET production <<< \"\$BODEGA_ADMIN_SECRET\"" >&2
+    echo "        vercel deploy --prod  (redeploy so runtime picks up the new value)" >&2
+    exit 1
+    ;;
+  503)
+    msg=$(jq -r '.message // "no message"' /tmp/bodega-smoke.json 2>/dev/null)
+    echo "❌ 503 — infrastructure not configured. Server says: $msg" >&2
+    echo "   Common causes:" >&2
+    echo "     - BLOB_READ_WRITE_TOKEN missing (run \`vercel blob store connect bodega-store\` and redeploy)" >&2
+    echo "     - Other env var unset; check \`vercel logs\` for the deployment" >&2
+    rm -f /tmp/bodega-smoke.json
+    exit 1
+    ;;
+  *)
+    msg=$(cat /tmp/bodega-smoke.json 2>/dev/null | head -c 200)
+    echo "❌ Unexpected $response from magic-link endpoint." >&2
+    echo "   Body: $msg" >&2
+    echo "   Check: vercel logs <deploy-url>" >&2
+    rm -f /tmp/bodega-smoke.json
+    exit 1
+    ;;
+esac
+```
+
+This catches:
+- empty `BODEGA_ADMIN_SECRET` (the stdin-newline bug) → 401 with a
+  precise re-add command
+- missing `BLOB_READ_WRITE_TOKEN` → 503 with the connect-store
+  command
+- empty `BODEGA_SESSION_SECRET` (would not 401 on this endpoint, but
+  would break the eventual session-issue step in `/studio/verify`)
+
+If 200, do NOT log the response body — it includes a `verify_url`
+that's a one-time-use admin link. Discard it.
+
+If anything fails: don't proceed. The `bodega:admin` skill assumes
+the magic-link endpoint works, and so does `bodega:invite`. Bail
+loud here so the failure is attributable to deploy, not to
+downstream skills.
 
 ## Step 8 — Bind domain if custom
 

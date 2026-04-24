@@ -55,8 +55,39 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Pre-flight: storage must be configured. Without
+  // BLOB_READ_WRITE_TOKEN, getMagicLinkStorage() returns a storage
+  // whose put() throws on first use. Catch that early and return a
+  // 503 with the exact remediation instead of bubbling up as a
+  // generic 500.
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return NextResponse.json(
+      {
+        message:
+          'Storage is not configured (BLOB_READ_WRITE_TOKEN missing). ' +
+          'Run `vercel blob store connect <store-name>` and redeploy.',
+        reason: 'storage_unconfigured',
+      },
+      { status: 503 },
+    );
+  }
+
   const storage = getMagicLinkStorage();
-  const record = await createMagicLink({ email, role }, storage);
+  let record;
+  try {
+    record = await createMagicLink({ email, role }, storage);
+  } catch (err) {
+    // Anything thrown by the storage layer (network, blob 4xx, etc.).
+    // 502 because the failure is upstream-of-us at the storage layer,
+    // not a request-side problem. Surface the underlying message so
+    // the smoke test in deploy/SKILL.md Step 7.5 can show it.
+    const message = err instanceof Error ? err.message : 'storage put failed';
+    console.error('[bodega admin] storage failed during createMagicLink:', err);
+    return NextResponse.json(
+      { message: `Storage error: ${message}`, reason: 'storage_error' },
+      { status: 502 },
+    );
+  }
 
   const origin = new URL(req.url).origin;
   const verifyUrl = `${origin}/studio/verify?token=${record.token}`;
