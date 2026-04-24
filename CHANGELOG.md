@@ -9,6 +9,20 @@ land in a minor-version bump.
 
 ## [Unreleased]
 
+### StudioLayout — site-mode-aware nav (real-test polish)
+
+`StudioLayout` rendered the same three nav links — Home / Products /
+Orders — regardless of `site_mode`. In showcase mode (no checkout,
+no orders) the "Orders" link led to a 404 or a confused empty page.
+
+Fix in `packages/bodega/src/components/StudioLayout.tsx`: read
+`BODEGA_SITE_MODE` (already set by `deploy/SKILL.md` Step 5) and
+hide "Orders" unless the mode is `digital` or `commerce`. Defaults
+to showing Orders when the env var is unset, matching pre-mode-aware
+behavior so existing 0.2.x deployments don't regress on upgrade.
+
+(Filed as #47 in the validation pass.)
+
 ### Vercel CLI 52 blob-store subcommand drift (real-test)
 
 `hosting/SKILL.md` Step 3 documented `vercel blob store add

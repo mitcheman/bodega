@@ -32,6 +32,16 @@ export default async function StudioLayout({
 
   const storeName = process.env.BODEGA_STORE_NAME ?? 'Your studio';
 
+  // Site-mode-aware nav. /studio/orders only exists for digital +
+  // commerce modes (the modes that actually have checkout). Showing
+  // an "Orders" link in showcase mode (no checkout, no orders) leads
+  // the merchant to a 404 or an empty page that explains nothing.
+  // BODEGA_SITE_MODE is set on Vercel env by deploy/SKILL.md Step 5.
+  // Default to 'commerce' if unset (most permissive nav — matches
+  // pre-mode-aware behaviour).
+  const siteMode = process.env.BODEGA_SITE_MODE ?? 'commerce';
+  const showOrders = siteMode === 'digital' || siteMode === 'commerce';
+
   return (
     <div
       style={{
@@ -66,7 +76,7 @@ export default async function StudioLayout({
         <nav style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
           <NavLink href="/studio">Home</NavLink>
           <NavLink href="/studio/products">Products</NavLink>
-          <NavLink href="/studio/orders">Orders</NavLink>
+          {showOrders && <NavLink href="/studio/orders">Orders</NavLink>}
           <form action="/api/bodega/auth/logout" method="POST" style={{ margin: 0 }}>
             <button
               type="submit"
