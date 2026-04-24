@@ -37,6 +37,26 @@ function tryCmd(cmd) {
   }
 }
 
+// Variant of tryCmd that surfaces stderr + exit code so the caller can
+// diagnose failures instead of guessing. Use this when the failure
+// mode matters more than just "did it work".
+function tryCmdDetail(cmd) {
+  try {
+    const stdout = execSync(cmd, {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return { ok: true, stdout: stdout.trim(), stderr: '', exitCode: 0 };
+  } catch (err) {
+    return {
+      ok: false,
+      stdout: (err.stdout?.toString?.() ?? '').trim(),
+      stderr: (err.stderr?.toString?.() ?? '').trim(),
+      exitCode: err.status ?? -1,
+    };
+  }
+}
+
 function parseSemver(v) {
   const m = v?.match(/(\d+)\.(\d+)\.(\d+)/);
   return m ? { major: +m[1], minor: +m[2], patch: +m[3] } : null;
@@ -254,6 +274,44 @@ function isVercelLinked() {
   return fs.existsSync('.vercel/project.json');
 }
 
+// Classify a Vercel-CLI failure from stderr text → human-meaningful
+// label + retry hint. Returns an object the caller can return directly
+// when downgrading to "skipped (with reason)".
+function classifyVercelFailure(stderr) {
+  const s = (stderr || '').toLowerCase();
+  if (!s) {
+    return {
+      reason: 'no stderr (CLI exited non-zero silently)',
+      fix: null,
+    };
+  }
+  if (s.includes('not authenticated') || s.includes('please log in') || s.includes('credentials') || s.includes('not logged in')) {
+    return {
+      reason: 'auth expired',
+      fix: 'Re-authenticate: `vercel login --github`. Then re-run doctor.',
+    };
+  }
+  if (s.includes('not linked') || s.includes("isn't linked") || s.includes('no project found')) {
+    return {
+      reason: 'project not linked',
+      fix: 'Re-link: `vercel link --yes --scope=<your-scope>`.',
+    };
+  }
+  if (s.includes('unknown option') || s.includes('unrecognized') || s.includes("doesn't accept") || s.includes('invalid argument')) {
+    return {
+      reason: 'CLI flag unsupported on this command (CLI version drift?)',
+      fix: 'Skip this probe — it requires a newer Vercel CLI subcommand shape.',
+    };
+  }
+  // Default: surface the first meaningful stderr line so the user has a
+  // breadcrumb instead of doctor guessing.
+  const firstLine = stderr.split('\n').find((l) => l.trim()) ?? '';
+  return {
+    reason: firstLine.slice(0, 100),
+    fix: null,
+  };
+}
+
 function checkVercelNodeMatch() {
   if (!isVercelLinked()) {
     return {
@@ -265,34 +323,77 @@ function checkVercelNodeMatch() {
       informational: true,
     };
   }
-  const raw = tryCmd('vercel project inspect --json 2>/dev/null');
-  if (!raw) {
+
+  // Three-stage fallback for getting the project's Node version:
+  //   1. `vercel inspect --json` (top-level inspect against the linked
+  //      project) — most reliable on CLI 50+.
+  //   2. `vercel project inspect --json` — works on some CLI versions,
+  //      not all. This is what doctor used to call exclusively, which
+  //      surfaced "auth expired?" for unrelated CLI flag-shape errors.
+  //   3. None of the above worked → downgrade to informational with
+  //      the actual stderr reason, never claim "auth expired" without
+  //      evidence.
+
+  const candidates = [
+    'vercel inspect --json',
+    'vercel project inspect --json',
+  ];
+
+  let project = null;
+  let lastFailure = null;
+
+  for (const cmd of candidates) {
+    const r = tryCmdDetail(cmd);
+    if (!r.ok) {
+      lastFailure = r;
+      continue;
+    }
+    if (!r.stdout) {
+      lastFailure = { ...r, stderr: 'empty stdout' };
+      continue;
+    }
+    try {
+      project = JSON.parse(r.stdout);
+      break;
+    } catch {
+      lastFailure = { ...r, stderr: 'inspect output not JSON' };
+      continue;
+    }
+  }
+
+  if (!project) {
+    const cls = classifyVercelFailure(lastFailure?.stderr);
+    // Auth-expired is the one case where it IS a warning (because it
+    // blocks downstream skills). Everything else downgrades to
+    // informational so we don't cry wolf.
+    const isAuthIssue = /auth expired/.test(cls.reason);
     return {
       label: 'Vercel project Node version',
-      value: 'could not query (auth expired? try `vercel login --github`)',
-      ok: false,
+      value: `skipped — ${cls.reason}`,
+      ok: !isAuthIssue,
       critical: false,
-      fix: 'Re-authenticate: `vercel login --github`. Then re-run doctor.',
+      fix: cls.fix,
+      informational: !isAuthIssue,
     };
   }
-  let project;
-  try {
-    project = JSON.parse(raw);
-  } catch {
-    return {
-      label: 'Vercel project Node version',
-      value: 'inspect output not JSON',
-      ok: false,
-      critical: false,
-      fix: 'Verify your Vercel CLI is 50+ (`vercel --version`).',
-    };
-  }
-  // Vercel returns nodeVersion as e.g. "20.x" or "22.x".
-  const projectNode = project?.nodeVersion ?? project?.framework?.nodeVersion;
+
+  // Vercel returns nodeVersion variously by command + version:
+  //   - top-level `vercel inspect --json` puts it on the deployment
+  //     metadata (often `meta.nodeVersion` or `build.env.NODE_VERSION`)
+  //   - `vercel project inspect --json` puts it at top level as
+  //     `nodeVersion` or under `framework.nodeVersion`
+  // Best-effort lookup across known shapes.
+  const projectNode =
+    project?.nodeVersion ??
+    project?.framework?.nodeVersion ??
+    project?.meta?.nodeVersion ??
+    project?.build?.env?.NODE_VERSION ??
+    null;
+
   if (!projectNode) {
     return {
       label: 'Vercel project Node version',
-      value: 'unknown (no nodeVersion field on project)',
+      value: 'unknown (no nodeVersion field in inspect output)',
       ok: true,
       critical: false,
       fix: null,
@@ -464,11 +565,107 @@ function checkImpeccable() {
 
 function checkBodegaConfig() {
   const has = fs.existsSync('.bodega.md');
+  if (!has) {
+    return {
+      label: '.bodega.md',
+      value: 'absent (fresh project — run /bodega:setup)',
+      ok: true,
+      critical: false,
+      fix: null,
+      informational: true,
+    };
+  }
+  // Try to extract bodega.version from the YAML frontmatter so we can
+  // tell whether the installed plugin matches what scaffolded this
+  // project. Hand-rolled parse (no yaml dep) — we only need one nested
+  // value, regex is fine.
+  let scaffoldedVersion = null;
+  try {
+    const raw = fs.readFileSync('.bodega.md', 'utf8');
+    const m = raw.match(/^bodega:\s*\n(?:[ \t]+[^\n]*\n)*?[ \t]+version:\s*['"]?([\w.\-]+)['"]?/m);
+    scaffoldedVersion = m?.[1] ?? null;
+  } catch {
+    // unreadable; treat as no version pin
+  }
+  if (!scaffoldedVersion) {
+    return {
+      label: '.bodega.md',
+      value: 'present (legacy — no bodega.version pin)',
+      ok: true,
+      critical: false,
+      fix: null,
+      informational: true,
+    };
+  }
   return {
     label: '.bodega.md',
-    value: has
-      ? 'present (project is already set up)'
-      : 'absent (fresh project — run /bodega:setup)',
+    value: `present (scaffolded against bodega ${scaffoldedVersion})`,
+    ok: true,
+    critical: false,
+    fix: null,
+    informational: true,
+    scaffoldedVersion,
+  };
+}
+
+// Compare the version that scaffolded .bodega.md against the version
+// of the bodega plugin currently installed (resolved via the plugin
+// CLI). Warns on a major-version mismatch — minor/patch drift is
+// usually safe but worth noting.
+function checkBodegaVersionDrift(configResult) {
+  const scaffolded = configResult.scaffoldedVersion;
+  if (!scaffolded) {
+    // .bodega.md absent or pre-version-pinning — nothing to compare.
+    return {
+      label: 'Bodega version drift',
+      value: 'skipped (no scaffold-time version recorded)',
+      ok: true,
+      critical: false,
+      fix: null,
+      informational: true,
+    };
+  }
+  // Best-effort current-version resolution.  The plugin CLI prints its
+  // version with --version; if the user is running doctor through `npx`
+  // that goes through the on-disk install.
+  const installedRaw = tryCmd('bodega --version 2>/dev/null') || tryCmd('npx bodega --version 2>/dev/null');
+  const installed = installedRaw?.match(/(\d+\.\d+\.\d+)/)?.[1] ?? null;
+  if (!installed) {
+    return {
+      label: 'Bodega version drift',
+      value: `scaffolded against ${scaffolded} (installed: unknown)`,
+      ok: true,
+      critical: false,
+      fix: null,
+      informational: true,
+    };
+  }
+  if (installed === scaffolded) {
+    return {
+      label: 'Bodega version drift',
+      value: `${installed} matches scaffold`,
+      ok: true,
+      critical: false,
+      fix: null,
+    };
+  }
+  const sMajor = parseInt(scaffolded.split('.')[0], 10);
+  const iMajor = parseInt(installed.split('.')[0], 10);
+  if (sMajor !== iMajor) {
+    return {
+      label: 'Bodega version drift',
+      value: `installed ${installed} vs scaffolded ${scaffolded} (MAJOR drift)`,
+      ok: false,
+      critical: false,
+      fix:
+        `Schema may have changed across the major bump. Skim CHANGELOG ` +
+        `for breaking changes between ${scaffolded} and ${installed}, then ` +
+        `re-run setup if needed.`,
+    };
+  }
+  return {
+    label: 'Bodega version drift',
+    value: `installed ${installed} vs scaffolded ${scaffolded}`,
     ok: true,
     critical: false,
     fix: null,
@@ -536,6 +733,7 @@ function render(results, voice) {
 function main() {
   const voice = detectVoice();
 
+  const configResult = checkBodegaConfig();
   const results = [
     checkNode(),
     checkPackageManager(),
@@ -544,7 +742,8 @@ function main() {
     checkGh(),
     checkProject(),
     checkImpeccable(),
-    checkBodegaConfig(),
+    configResult,
+    checkBodegaVersionDrift(configResult),
     // Project-linked checks — quietly skip when .vercel/project.json absent.
     checkVercelNodeMatch(),
     checkBlobToken(),

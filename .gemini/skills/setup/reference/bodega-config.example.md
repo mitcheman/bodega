@@ -9,7 +9,16 @@
 # programmatically. Below the frontmatter is free-form notes any agent
 # can read for context.
 
-version: 1
+version: 1                        # SCHEMA version of this file. Bump
+                                  # when fields change incompatibly.
+
+# Bodega plugin metadata — written by setup, updated by deploy. Recorded
+# so future agents can tell which version scaffolded the project, and
+# warn if the installed plugin has drifted significantly.
+bodega:
+  version: 0.2.0                  # plugin version that ran setup
+  installed_at: 2026-04-22T14:00:00Z
+  last_deploy_version: 0.2.0      # plugin version of the most recent deploy
 
 # Voice and beneficiary — captured in setup, used everywhere.
 mode: developer                   # developer | simple
@@ -59,7 +68,8 @@ state:
   preview_mode: false             # true if deploy ran while payments pending
   webhook_configured: false
 
-mode_detected: adapt              # adapt | greenfield
+initial_mode: adapt               # immutable — first-run detection
+mode_current: adapt               # mutable — flips to 'adapt' after greenfield
 
 # Vercel project metadata — written by hosting skill.
 vercel:

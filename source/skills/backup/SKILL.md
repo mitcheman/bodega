@@ -11,11 +11,22 @@ developers. In developer voice, calls it what it is.
 
 ## Pre-checks
 
-1. Read `.bodega.md`. Backup is always optional — it can be skipped or
-   added later.
+1. Read `.bodega.md`. Apply the **resume contract** from
+   `setup/SKILL.md`. Substep labels (in order):
+   `gh-authed` → `scope-chosen` → `git-initialized` →
+   `repo-created-and-pushed` → `auto-push-configured`. Resume picks
+   up at `backup.last_completed_step + 1`.
+   Backup is always optional — `state.backup: skipped` is a valid
+   terminal state, never resumed automatically.
 2. Check for `gh` CLI: `gh --version`. Missing → install:
    - macOS: `brew install gh`
    - other: direct to https://cli.github.com/ and give a friendly message.
+3. **Detect headless mode**. If `GH_TOKEN` is set in env, skip the
+   browser auth flow (Step 2a) entirely — the CLI uses the token
+   automatically. Verify with `gh auth status` and proceed to Step 3.
+   Headless callers must also specify the target via env:
+   `GH_REPO_OWNER` (user or org) and optionally `GH_REPO_NAME`
+   (defaults to the project slug). No interactive picker.
 
 ## Step 1 — Ask and explain
 

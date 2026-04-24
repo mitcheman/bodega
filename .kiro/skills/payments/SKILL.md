@@ -11,11 +11,43 @@ sometimes ID documents.
 
 ## Pre-checks
 
-1. Read `.bodega.md`.
+1. Read `.bodega.md`. Apply the **resume contract** from
+   `setup/SKILL.md`. Substep labels (in order):
+   `mode-chosen` → `publishable-key-stored` → `secret-key-stored` →
+   `payments-config-recorded`. Resume picks up at
+   `payments.last_completed_step + 1`.
 2. If `state.payments: done`, verify keys still work. Ask if the user
    wants to rotate or re-enter.
 3. If `handoff: true`, note that the merchant (not the operator) is
    the one doing Stripe KYC.
+4. **Detect headless mode**. If both `STRIPE_SECRET_KEY` and
+   `STRIPE_PUBLISHABLE_KEY` are set in the shell env (or `STRIPE_API_KEY`,
+   which is Stripe's own canonical env-var name for the secret), skip
+   to "Headless path" below. No browser, no chat-paste flow.
+
+## Headless path
+
+Use this when running unattended (CI, automation, or an agent run
+against a pre-existing Stripe account). The merchant has already
+created the account and pulled keys; this skill just provisions
+them on Vercel.
+
+```
+# Both keys read from the agent's shell env, not chat:
+PUBLISHABLE_KEY="${STRIPE_PUBLISHABLE_KEY:?STRIPE_PUBLISHABLE_KEY is required for headless mode}"
+SECRET_KEY="${STRIPE_API_KEY:-${STRIPE_SECRET_KEY:?STRIPE_SECRET_KEY (or STRIPE_API_KEY) is required for headless mode}}"
+
+# Shovel both into Vercel env without echoing.
+vercel env add NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY production <<< "$PUBLISHABLE_KEY"
+vercel env add STRIPE_SECRET_KEY production <<< "$SECRET_KEY"
+```
+
+Detect mode from the prefix: `pk_live_`/`sk_live_` → live; `pk_test_`/
+`sk_test_` → test. Write `stripe.mode` to `.bodega.md` accordingly.
+
+Skip the rest of the interactive flow (Steps 1–4) and jump to
+Step 5. Headless mode never warns about chat-transcript leaks because
+the keys never touched chat — they came from env.
 
 ## Step 1 — Generate the onboarding link
 

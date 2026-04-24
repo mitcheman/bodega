@@ -9,6 +9,168 @@ land in a minor-version bump.
 
 ## [Unreleased]
 
+### Round 5 — closes the deferred architectural items + validation issue
+
+Closes the five items previously TODO'd in `CLAUDE.md` (#14, #47,
+#48, #49, #50) plus a real-test issue found while validating round 4
+(`checkVercelNodeMatch` misclassification) and a SDK version bump so
+the round-3/4 SDK-side fixes can actually publish.
+
+#### #48 — Version pinning in `.bodega.md`
+
+`bodega.version`, `bodega.installed_at`, and `bodega.last_deploy_version`
+are now first-class fields. `setup/SKILL.md` Step 3 records the
+plugin version that scaffolded the project; `deploy/SKILL.md` Step 9
+updates `last_deploy_version` on every deploy. Reproducibility
+question — "which SDK shape is this `.bodega.md` from?" — has a single
+field to answer it.
+
+`doctor/scripts/check.mjs` gains `checkBodegaVersionDrift` which
+reads `bodega.version`, resolves the locally-installed plugin version
+via `bodega --version`, and warns on a major-version mismatch
+(suggests skimming the CHANGELOG for breaking changes between the
+two). Minor/patch drift is informational.
+
+Also fixed a name collision in setup's example YAML — the field
+`mode` was used for both voice (`developer | simple`) and project
+detection (`adapt | greenfield`). The second `mode:` was overwriting
+the first in YAML parsers. Renamed the project-detection field to
+`mode_current` (was `mode_detected` originally; kept the
+backwards-compat read in `greenfield-design`).
+
+#### #47 — Headless / agent-only path
+
+Each side-effecting skill now has a documented headless path that
+skips the browser auth flow when an env-var credential is present:
+
+- **hosting** — `VERCEL_TOKEN` (already shipped in round 1)
+- **backup** — `GH_TOKEN` (skips `gh auth login`); also reads
+  `GH_REPO_OWNER` + optional `GH_REPO_NAME` so there's no interactive
+  picker
+- **payments** — `STRIPE_API_KEY` (Stripe's own canonical name) or
+  `STRIPE_SECRET_KEY` plus `STRIPE_PUBLISHABLE_KEY`. New "Headless
+  path" section in payments/SKILL.md skips Steps 1–4 entirely
+
+`setup/SKILL.md` Step 1.4 (new) detects headless context (`!isTTY`
+AND at least one credential env var). When detected: skips the
+"set expectations" Step 1.5, defaults voice to developer, and skips
+the "ready?" confirmation gates throughout.
+
+#### #50 — Resume-ability
+
+New "Resume contract" section in `setup/SKILL.md` formalizes the
+state machine every sub-skill follows:
+
+```
+state.<skill>: not-started | in-progress | partial | done | failed | skipped
+<skill>.last_completed_step: <substep-label>
+<skill>.last_attempted_step: <substep-label>
+<skill>.failed_at, <skill>.failed_reason  (only on failed)
+```
+
+Each sub-skill writes `last_attempted_step` BEFORE any side-effecting
+call, updates `last_completed_step` AFTER, and sets terminal
+state (`done` / `failed` / `skipped`) at end-of-skill. Resume reads
+the bookmark and starts at the next side-effect — no double-provisioning.
+
+Substep labels documented per skill:
+- **hosting**: `vercel-authed → scope-resolved → project-linked → blob-store-created → blob-store-connected → preview-url-recorded`
+- **payments**: `mode-chosen → publishable-key-stored → secret-key-stored → payments-config-recorded`
+- **deploy**: `sdk-installed → theme-resolved → marketing-isolated → routes-scaffolded → cart-provider-wrapped → env-vars-provisioned → webhook-registered → built → deployed → domain-bound`
+- **admin**: `magic-link-generated → welcome-email-sent → walkthrough-enabled → handoff-package-written`
+- **domain**: `domain-acquired → domain-bound-to-vercel → dns-configured → verification-confirmed`
+- **backup**: `gh-authed → scope-chosen → git-initialized → repo-created-and-pushed → auto-push-configured`
+
+(Golden-file resume tests deferred — listed in CLAUDE.md as
+follow-up. The contract is in place; harness tests come next.)
+
+#### #49 — `/bodega:uninstall` rollback skill
+
+New user-invocable `uninstall/SKILL.md`. Walks the user through
+removing each provisioned resource in the right order:
+
+1. Stripe webhook (cheapest to recreate — do first so duplicate-events
+   risk is gone before the URL disappears)
+2. Custom domain unbinding (registrar untouched — user still owns it)
+3. GitHub backup repo — DESTRUCTIVE, requires typed-`delete`
+   confirmation, uses `gh repo delete --yes` for non-TTY safety
+4. Vercel blob store
+5. Vercel project itself (last — once gone, the URLs other resources
+   point to are also gone)
+6. `.bodega.md` itself (defaults to KEEP — the file becomes an audit
+   trail of what was removed)
+
+Each step asks first, defaults no, and is idempotent (already-gone
+resources are noted, not errored on). The merchant's Stripe account /
+bank / payouts / domain registrar are NEVER touched — only the
+Bodega-provisioned linkage between them and the deployment.
+
+#### #14 — Voice gating + build-time lint
+
+New `scripts/lint-voice.mjs` scans every `SKILL.md` for forbidden
+developer-jargon tokens inside `### Simple voice:` blockquotes. The
+build (`scripts/build.js`) runs the lint before any transform and
+aborts if violations are found. Forbidden tokens (~20 entries) cover
+the canonical jargon from CLAUDE.md plus extensions surfaced during
+the lint pass: `env vars`, `webhook`, `repo`, `commit`, `push`,
+`deploy`, `Next.js`, `Tailwind`, `npm`, `npx`, `CLI`, `SDK`,
+`API key`, `DNS`, `auth`, `environment variable`, etc.
+
+Brand allow-list: **Vercel**, **Stripe**, **GitHub**, **Resend**
+(the user has to recognize them at a click target). Inline-code
+spans (`` `DNS` ``) are exempt — wrap UI labels when the merchant
+has to find that exact word in a third-party dashboard.
+
+Found and fixed 13 violations across `deploy`, `domain`, `status`,
+and the new `uninstall` skill during the initial lint pass. Build is
+now lint-clean across all 13 skills.
+
+Bypass for iterative editing: `BODEGA_SKIP_VOICE_LINT=1 pnpm build`.
+Don't ship that way.
+
+New "Voice contract" section in `setup/SKILL.md` formalizes the
+contract for sub-skills (resolve voice from `.bodega.md` at start,
+default to developer if absent, render every user-facing block in
+the resolved voice).
+
+#### Validation — `checkVercelNodeMatch` misclassification (round 4 regression)
+
+Doctor's Node-version cross-check from round 4 said "auth expired?"
+on every failure mode — including the actual case, which was almost
+certainly `vercel project inspect --json` not being a supported
+combination on CLI 52 (different from top-level `vercel inspect
+--json`).
+
+Fix:
+- New `tryCmdDetail()` helper captures stderr + exit code separately
+  so probes can diagnose failures instead of guessing.
+- `classifyVercelFailure()` maps stderr text to actual reason
+  (auth-expired, project-not-linked, flag-unsupported, fall-back to
+  first-stderr-line).
+- `checkVercelNodeMatch` now tries `vercel inspect --json` first,
+  falls back to `vercel project inspect --json`. On total failure,
+  downgrades to informational (not warning) with the actual stderr
+  reason — never claims "auth expired" without evidence.
+- Best-effort `nodeVersion` lookup across the three known shapes
+  (`nodeVersion`, `framework.nodeVersion`, `meta.nodeVersion`,
+  `build.env.NODE_VERSION`).
+
+#### SDK — bumped `@mitcheman/bodega` to 0.3.0
+
+`packages/bodega/package.json` version → `0.3.0` so rounds 3+4
+SDK-side fixes (LoginPage Suspense split, undici CVE bump,
+email-bootstrap-link path) actually publish. To publish:
+
+```
+cd packages/bodega
+pnpm publish --access public
+```
+
+Minor bump (not patch) because the `@vercel/blob` major bump is a
+transitive dep change worth signalling, and the magic-link response
+shape gained `email_sent` / `email_unconfigured_reason` fields
+(additive — non-breaking, but new public surface).
+
 ### Real-test fixes — round 4: deploy bundle, doctor depth, backup/status polish
 
 Closes the 10 P0/P1/P2 items still open after rounds 1–3.

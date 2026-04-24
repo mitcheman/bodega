@@ -11,8 +11,10 @@ Creates the canvas that commerce will later live on.
 
 ## Pre-checks
 
-1. Read `.bodega.md`. Require `mode_detected: greenfield`. Otherwise exit —
-   this skill is not meant to be invoked directly.
+1. Read `.bodega.md`. Require `mode_current: greenfield` (or legacy
+   `mode_detected: greenfield` for projects scaffolded before the
+   field rename). Otherwise exit — this skill is not meant to be
+   invoked directly.
 2. Confirm we're in the intended project root (empty folder + `.bodega.md`).
 
 ## Step 1 — Ensure impeccable is installed
@@ -131,7 +133,7 @@ Loop until happy (or "good enough").
 ## Step 6 — Update `.bodega.md` and return
 
 Update `.bodega.md`:
-- `mode_detected: adapt` (project now exists)
+- `mode_current: adapt` (project now exists; `initial_mode` stays `greenfield`)
 - Add note under free-form section:
 
 ```

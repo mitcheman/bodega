@@ -121,4 +121,5 @@ Based on state:
 
 > ⚠️ Your store seems to be down. I got an error when I checked it.
 >
-> Want me to try deploying again? Run `{{command_prefix}}bodega:deploy`.
+> Want me to try putting it back online? Run
+> `{{command_prefix}}bodega:deploy`.

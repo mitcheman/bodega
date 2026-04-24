@@ -10,12 +10,22 @@ as part of `$bodega:setup`'s flow.
 
 ## Pre-checks
 
-1. Read `.bodega.md`. Required:
+1. Read `.bodega.md`. Apply the **resume contract** from
+   `setup/SKILL.md`. Substep labels (in order):
+   `sdk-installed` → `theme-resolved` → `marketing-isolated` →
+   `routes-scaffolded` → `cart-provider-wrapped` →
+   `env-vars-provisioned` → `webhook-registered` → `built` →
+   `deployed` → `domain-bound`. Resume picks up at
+   `deploy.last_completed_step + 1`.
+   Standalone deploys (re-deploy after changes) start fresh from
+   `built` if every prior substep is recorded as completed in this
+   project's history (i.e., already in `done` once).
+2. Required upstream state:
    - `state.hosting: done`
    - `site_mode` present (one of: marketing, showcase, digital, commerce)
    - For `digital` or `commerce` modes: `state.payments: done` OR
      `state.payments: pending` (latter → preview mode)
-2. Read `.impeccable.md` if present. Otherwise fall back to
+3. Read `.impeccable.md` if present. Otherwise fall back to
    `app/globals.css` and `tailwind.config.*` for design tokens.
 
 ### Site mode scaffolding matrix
@@ -355,14 +365,14 @@ Ask the merchant:
 
 #### Simple voice:
 
-> One last thing before we deploy: do you want emails right now,
-> or set them up later?
+> One last thing before we put your site online: do you want emails
+> working right now, or set them up later?
 >
 >   a. **Set up later** (recommended for now) — your store will
->      deploy and work for browsing, but the magic-link login for
->      `/studio` won't actually send emails until you're ready.
+>      go live and work for browsing, but the magic-link login for
+>      your studio won't actually send emails until you're ready.
 >      You can flip it on any time by adding two settings on
->      Vercel and redeploying.
+>      Vercel and updating your site.
 >   b. **Set up now** — needs a Resend account
 >      (free, ~3 minutes at resend.com) and a domain you own +
 >      have verified in Resend. Use this if you've already done
@@ -644,7 +654,22 @@ deploy:
   url: https://muddmannstudio.com
   preview_url: https://mudd-mann-studio.vercel.app
   webhook_configured: true
+bodega:
+  # Existing bodega.version (scaffold-time pin) is preserved untouched.
+  # last_deploy_version updates every deploy so doctor / status can
+  # answer "which SDK shape is on Vercel right now?".
+  last_deploy_version: <CURRENT_BODEGA_VERSION>
 ```
+
+To resolve `<CURRENT_BODEGA_VERSION>`, read from
+`node_modules/@mitcheman/bodega/package.json`:
+
+```
+node -e "console.log(require('@mitcheman/bodega/package.json').version)"
+```
+
+If the SDK isn't installed yet (preview-only deploy paths), skip the
+field — don't fabricate a value.
 
 ## Step 10 — Auto-backup if enabled
 

@@ -10,9 +10,13 @@ run during setup or standalone later.
 
 ## Pre-checks
 
-1. Read `.bodega.md`. Require `state.hosting: done` (the Vercel project
-   must exist).
-2. If `state.domain: done`, ask if the user wants to change domain.
+1. Read `.bodega.md`. Apply the **resume contract** from
+   `setup/SKILL.md`. Substep labels (in order):
+   `domain-acquired` → `domain-bound-to-vercel` → `dns-configured` →
+   `verification-confirmed`. Resume picks up at
+   `domain.last_completed_step + 1`.
+2. Require `state.hosting: done` (the Vercel project must exist).
+3. If `state.domain: done`, ask if the user wants to change domain.
 
 ## Step 1 — Ask the branch
 
@@ -63,8 +67,8 @@ registrars expand to the apex.
 > etc.). These records tell the internet: "when someone types this
 > domain, send them to this store."
 >
-> Log in at your domain provider and find the section labeled **DNS**,
-> **DNS settings**, or **Manage DNS**. Add these two rows. The
+> Log in at your domain provider and find the section labeled `DNS`,
+> `DNS settings`, or `Manage DNS`. Add these two rows. The
 > "Name" field varies by provider — use whichever form yours accepts:
 >
 >     Type: A

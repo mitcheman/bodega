@@ -74,109 +74,23 @@ If a message is user-facing and the wording differs by voice, write both
 variants explicitly. See `source/skills/payments/SKILL.md` for a good
 worked example.
 
-### TODO — voice gating is not enforced downstream
+The build enforces this with a voice-lint
+(`node scripts/lint-voice.mjs`, run automatically by `pnpm build`).
+Forbidden tokens inside `### Simple voice:` blockquotes fail the
+build with file:line:column. Brand allow-list (Vercel/Stripe/GitHub/
+Resend) is documented in the lint script. Inline-code spans
+(\`DNS\`, etc.) are exempt — wrap UI labels there when the user has
+to find that exact word in a third-party dashboard.
 
-Right now the orchestrator (`setup`) reads voice from the user's first
-answer and writes it to `.bodega.md`, but **sub-skills aren't gated on
-it**. If `hosting`, `payments`, `deploy`, `admin`, `domain`, or
-`backup` print developer jargon while the user picked `simple`, the
-voice rule silently breaks downstream.
+### Stretch — golden-file voice tests (not yet implemented)
 
-Fix to land before next user-facing release:
-
-1. At the start of every sub-skill, read `.bodega.md` and resolve
-   `mode`. Default to `developer` if absent (matches doctor's
-   behaviour today).
-2. Every user-facing block in the SKILL.md must have both voices
-   explicitly written, the way `payments/SKILL.md` does it.
-3. Add a voice-lint to `scripts/build.js`: scan each skill for
-   forbidden simple-voice tokens (`env vars`, `repo`, `webhook`,
-   `proxy`, `CLI`, `env file`, `Next.js`, `Tailwind`, `Workers`,
-   `npm`, `npx`, `commit`, `push`) and fail the build if a
-   simple-voice block contains any of them.
-4. (Stretch) golden-file tests per voice — fixtures of expected
-   simple-voice and developer-voice rendering for a representative
-   step in each sub-skill.
-
-Filed because the bodega.my landing now promises non-tech users
-"plain English the whole way through" and that promise has to be
-honoured at the orchestration level, not just in `setup/SKILL.md`.
-
-## Other architectural TODOs (real-test surfaced)
-
-These are bigger lifts than the per-skill fixes already shipped, and
-need their own focused passes. Filed here so they don't drift.
-
-### Headless / agent-only path
-
-Every skill currently assumes an interactive human in a TTY with a
-browser nearby. There's no path for full-automation use cases (CI,
-agent runs against pre-existing accounts, setup-as-code).
-
-Fix shape:
-
-- Each skill that triggers OAuth (hosting, payments, backup) checks
-  for a corresponding env-var-based credential first
-  (`VERCEL_TOKEN`, `STRIPE_API_KEY`, `GH_TOKEN`). If present, skip
-  the browser flow entirely and use the token.
-- Document the env-var path in each SKILL.md as the "headless
-  alternative" (hosting/SKILL.md already does this for `VERCEL_TOKEN`;
-  needs to land in backup, payments, etc.).
-- Make `setup/SKILL.md` aware of the headless context and skip the
-  Step-1.5 "set expectations" block when no human is on the other end.
-
-### Version pinning in `.bodega.md`
-
-`.bodega.md` doesn't record which version of the bodega plugin
-scaffolded it. Reproducibility is lost — a year from now, someone
-picking up the project can't tell which SDK version to install or
-which orchestrator behaviour to expect.
-
-Fix shape:
-
-- `setup/SKILL.md` Step 3 writes `bodega.version: <semver>` (read
-  from the plugin's package.json at scaffold time).
-- `doctor/SKILL.md` reads it and warns if the installed plugin is
-  significantly newer than the scaffolded-against version (potential
-  schema mismatch in `.bodega.md`).
-- `deploy/SKILL.md` records `bodega.last_deploy_version` so the user
-  knows which SDK shape is on Vercel right now.
-
-### Rollback / `/bodega:uninstall`
-
-If hosting succeeds and payments crashes, the Vercel project + blob
-store + (potentially) GitHub repo persist. There's no
-`/bodega:uninstall` or `--cleanup` flag to back out.
-
-Fix shape:
-
-- New `uninstall` skill (user-invocable) that, given a `.bodega.md`,
-  walks the user through removing each provisioned resource:
-  - Vercel project + blob store
-  - GitHub repo (with explicit "this is destructive" confirmation)
-  - Stripe webhook (the merchant's Stripe account itself stays —
-    that's their data)
-  - `.bodega.md` itself (ask before deleting)
-- Each sub-skill writes its provisioned resource IDs to `.bodega.md`
-  on success so uninstall has something to walk.
-
-### Resume-ability is promised, never tested
-
-`setup/SKILL.md` says "if any step fails, write state to `.bodega.md`
-so `/bodega:setup` resumes where it stopped." Several sub-skills
-don't write intermediate state on partial failure (hosting doesn't
-record `state.hosting: partial` mid-provision; deploy has no state
-write between Step 5 env-vars and Step 6 webhook).
-
-Fix shape:
-
-- Each sub-skill writes a `state.<skill>: in-progress` marker before
-  any side-effecting call, and updates to `partial` / `done` /
-  `failed` based on outcome. Include the substep so resume knows where
-  to pick up (e.g., `state.hosting: partial`,
-  `hosting.last_completed_step: blob-store-created`).
-- Add golden-file resume tests: kill the process between known
-  steps, re-run setup, assert no double-provisioning.
+Renderer-level fixture tests per voice would be the next step:
+fixtures of expected simple-voice and developer-voice rendering for a
+representative step in each sub-skill, asserted against on every
+build. Today the lint catches the failure mode that bit us in
+production (jargon leakage); fixture tests would catch regressions
+in the positive direction (a rephrase that drifts away from intended
+plain-English wording without crossing into jargon).
 
 ## Pre-PMF scope (do not expand without discussion)
 

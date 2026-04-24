@@ -10,11 +10,16 @@ hand off.
 
 ## Pre-checks
 
-1. Read `.bodega.md`. Require:
+1. Read `.bodega.md`. Apply the **resume contract** from
+   `setup/SKILL.md`. Substep labels (in order):
+   `magic-link-generated` → `welcome-email-sent` →
+   `walkthrough-enabled` → `handoff-package-written` (handoff mode only).
+   Resume picks up at `admin.last_completed_step + 1`.
+2. Require:
    - `state.deploy: done` (or `preview`)
    - `merchant.email` set (either `operator.email` if self, or
      `merchant.email` if handoff)
-2. Verify `/studio` route is live (HEAD request to
+3. Verify `/studio` route is live (HEAD request to
    `https://<url>/studio/login`).
 
 ## Step 1 — Generate the magic link

@@ -79,10 +79,45 @@ Wait for both answers. Re-ask only the unclear part if ambiguous.
 
 Validate email format. Store.
 
+## Step 1.4 — Detect headless context
+
+Before anything user-facing, check whether this is an unattended run
+(CI, automated agent against pre-existing accounts) — if so, none of
+the chatty expectation-setting that follows applies.
+
+A run is **headless** when ALL of:
+
+- `process.stdout.isTTY` is false (no human terminal)
+- AND at least one credential env var is set:
+  `VERCEL_TOKEN`, `STRIPE_API_KEY` / `STRIPE_SECRET_KEY`, or `GH_TOKEN`
+
+If headless:
+
+- Skip Step 1.5 entirely (no humans to set expectations for).
+- Default voice to `developer` (no point in plain-English narration —
+  the receiver is another agent or a log).
+- Each sub-skill below detects headless independently and uses its own
+  env-var path (see hosting/payments/backup SKILLs for the per-skill
+  fallbacks).
+
+Record the detection so downstream steps know:
+
+```yaml
+_session:
+  headless: true       # in-memory only — never written to .bodega.md
+```
+
+(Don't persist `_session.*` to disk; it should reflect the current
+invocation's environment, not history.)
+
+Continue to Step 2 — skip both Step 1.5 (expectations) and any
+"ready?" confirmation gates.
+
 ## Step 1.5 — Set expectations (simple voice only)
 
-If voice is `simple`, tell the user what they're signing up for. Skip
-this in developer voice — developers already know the shape.
+If voice is `simple` AND headless is false, tell the user what they're
+signing up for. Skip this in developer voice — developers already know
+the shape — and skip in headless (no humans to address).
 
 ### Simple voice:
 
@@ -176,6 +211,13 @@ with the values the user actually gave you):
 # EXAMPLE — every `<PLACEHOLDER>` value below comes from the user's
 # answers in Step 1 and Step 2. Do not write these literal values.
 version: 1
+bodega:
+  version: <BODEGA_VERSION>  # read from package.json of the plugin
+                             # (resolve via: node -e "console.log(require('@mitcheman/bodega/package.json').version)"
+                             #  OR by reading the source skill's package.json
+                             #  at .windsurf/skills/setup/scripts/../../../package.json — whichever is reachable)
+  installed_at: <ISO_NOW>    # ISO 8601 timestamp at scaffold time
+  last_deploy_version: null  # filled in by deploy
 mode: <developer|simple>     # voice from Step 1, question 1
 handoff: <true|false>        # true if beneficiary in Step 1, q2 was "someone else"
 merchant:
@@ -200,9 +242,15 @@ state:
   domain: not-started
   backup: not-started
 initial_mode: <adapt|greenfield>  # immutable record of what was true at first run
-mode: <adapt|greenfield>          # mutable; flips to "adapt" after greenfield-design completes
+mode_current: <adapt|greenfield>  # mutable; flips to "adapt" after greenfield-design completes
 ---
 ```
+
+> **Why `bodega.version` matters**: a year from now, someone picking up
+> the project (or doctor running against an upgraded plugin) needs to
+> tell which SDK shape this `.bodega.md` was authored against. Pinning
+> here gives doctor a single field to compare against the installed
+> plugin's version and warn if they've drifted apart.
 
 **Why two fields**: `initial_mode` is set once at first setup and never
 changes — it tells you forever whether the project started empty or
@@ -220,7 +268,7 @@ Confirm in chosen voice:
 ### Greenfield mode:
 
 Invoke `/bodega:greenfield-design`. Wait for completion.
-On return, update `.bodega.md` → `mode: adapt` (a project now
+On return, update `.bodega.md` → `mode_current: adapt` (a project now
 exists). **Do NOT touch `initial_mode`** — it stays `greenfield`
 forever as the historical record. Continue to Step 5.
 
@@ -316,6 +364,109 @@ In handoff mode, add:
 > A welcome package is saved at `.bodega/handoff/` for you to forward.
 > I already emailed your [partner/friend/client] their login link.
 
+## Voice contract — every sub-skill follows this
+
+Every side-effecting sub-skill resolves voice from `.bodega.md` at the
+start of its run, BEFORE any user-facing output:
+
+```
+Read .bodega.md → mode: developer | simple
+If absent (sub-skill called standalone before setup), default to developer.
+```
+
+Then every user-facing block in that skill is rendered in the resolved
+voice. Sub-skill SKILL.md files write both voices explicitly under
+`### Simple voice:` / `### Developer voice:` subheadings; the agent
+picks the matching block.
+
+The build enforces this with a voice-lint:
+`node scripts/lint-voice.mjs` (run automatically by `pnpm build`).
+Any developer-jargon token inside a `### Simple voice:` blockquote
+fails the build with file:line:column. The forbidden-token list is in
+`scripts/lint-voice.mjs`. Set `BODEGA_SKIP_VOICE_LINT=1` to bypass for
+a single iterative build (don't ship that way).
+
+Brand names allowed in simple voice (the user must recognize them at
+a click target): **Vercel**, **Stripe**, **GitHub**, **Resend**.
+Everything else (Next.js, Tailwind, npm, npx, the SDK name, "webhook",
+"repo", "deploy", "API key", "env var", "DNS", "auth", "CLI") is
+forbidden in simple-voice blockquotes. Wrap UI labels in inline-code
+(\`DNS\`) when the user has to find that exact word in a third-party
+dashboard — the lint exempts inline code.
+
+## Resume contract — every sub-skill follows this
+
+Every side-effecting sub-skill (`hosting`, `payments`, `deploy`,
+`admin`, `domain`, `backup`) reads + writes `.bodega.md` according to
+this contract. This is what makes "resume from where you stopped" real.
+
+### State machine per skill
+
+```yaml
+state:
+  hosting: not-started | in-progress | partial | done | failed | skipped
+  # ...same for payments, deploy, admin, domain, backup
+
+# When a skill is in-progress or partial, it records the substep so
+# resume can pick up cleanly:
+hosting:
+  last_completed_step: scope-resolved   # human-readable substep label
+  last_attempted_step: blob-store-create # what we were doing when it stopped
+  failed_at: 2026-04-22T14:21:30Z      # only on `failed`
+  failed_reason: "vercel CLI returned 401"
+```
+
+### Lifecycle each sub-skill must implement
+
+1. **On entry**: read `.bodega.md`. If `state.<self>` is:
+   - `done` → exit (or ask if user wants to re-run; default no).
+   - `not-started` → do the full skill.
+   - `in-progress` / `partial` → resume from `last_completed_step + 1`.
+     Skip any substep at-or-before `last_completed_step`. If the
+     resume point is unrecoverable (e.g., the project still references
+     a Vercel project ID that no longer exists), reset to
+     `not-started` and start over with a one-line note to the user.
+   - `failed` → show `failed_reason` to the user; ask whether to retry
+     (resume from `last_attempted_step`) or restart fresh.
+   - `skipped` → exit.
+
+2. **Before any side-effecting call** (anything that changes state on
+   Vercel / Stripe / GitHub / disk): write
+   `state.<self>: in-progress` AND
+   `<self>.last_attempted_step: <substep>` to `.bodega.md`.
+
+3. **After success of a substep**: update
+   `<self>.last_completed_step: <substep>`. Leave `state.<self>` as
+   `in-progress` until the WHOLE skill is done.
+
+4. **On full success**: set `state.<self>: done` and clear
+   `last_attempted_step` and `last_completed_step` (both unset, not
+   the empty string).
+
+5. **On failure**: set `state.<self>: failed`, write `failed_at` and
+   `failed_reason`. Leave `last_attempted_step` populated so resume
+   can retry from there.
+
+6. **On user-decline / explicit skip**: set `state.<self>: skipped`.
+   Don't write substep fields.
+
+### Substep label convention
+
+Use kebab-case, scoped to the skill — no need to namespace:
+`scope-resolved`, `project-linked`, `blob-store-created`,
+`webhook-registered`, `secret-key-stored`, etc. Each SKILL.md picks its
+own labels; the labels are documented in that SKILL's "Substeps"
+section (when present).
+
+### Why this matters
+
+Without state markers, a skill that crashes mid-run leaves orphan
+resources (Vercel project created, blob store created, env vars
+written, but webhook never registered). Resume looks like a fresh run
+that re-creates everything → duplicate Vercel projects, duplicate
+webhooks, the merchant gets fulfilment emails 3× per order. With
+markers, resume reads the bookmark and starts at the next side-effect.
+
 ## Rules you must follow
 
 - **Never use jargon in simple voice.** No "env vars", "deploy", "repo",
@@ -324,9 +475,8 @@ In handoff mode, add:
 - **Brand names only when the user clicks a link.** Vercel and Stripe
   appear because they authenticate there. Never mention Next.js, Tailwind,
   Workers, or similar in user-facing output.
-- **Resume-ability**: if any step fails or the user exits, write state
-  to `.bodega.md` so `/bodega:setup` resumes where it
-  stopped.
+- **Resume-ability**: see "Resume contract" above. Every sub-skill
+  follows it; setup is just the orchestrator.
 - **No side effects before Step 3.** Don't run commands or write files
   other than `.bodega.md` until the user has answered the first questions.
 - **Preview mode is acceptable.** Better to ship a live site with

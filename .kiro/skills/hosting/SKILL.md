@@ -11,10 +11,29 @@ the vercel-plugin.
 
 ## Pre-checks
 
-1. Read `.bodega.md`. If `state.hosting: done`, ask the user if they
-   want to re-run (e.g., to re-link).
+1. Read `.bodega.md`. Apply the **resume contract** from
+   `setup/SKILL.md` ("Resume contract — every sub-skill follows this"):
+   - `state.hosting: done` → ask if user wants to re-run.
+   - `state.hosting: in-progress` / `partial` → resume from
+     `hosting.last_completed_step + 1` (substep labels below).
+   - `state.hosting: failed` → show `failed_reason`, ask retry-or-restart.
+   - Anything else → fresh run.
 2. Check for Vercel CLI: `vercel --version`. Missing → install:
    `npm install -g vercel`.
+
+### Substep labels (for resume)
+
+In order:
+- `vercel-authed` (after Step 1)
+- `scope-resolved` (after Step 2a)
+- `project-linked` (after Step 2b/2c)
+- `blob-store-created` (after `vercel blob store add`)
+- `blob-store-connected` (after `vercel blob store connect`)
+- `preview-url-recorded` (after Step 4)
+
+Write `hosting.last_attempted_step: <next>` BEFORE each substep, then
+update `hosting.last_completed_step: <substep>` AFTER. On full
+success, set `state.hosting: done` and clear both substep fields.
 
 ## Step 1 — Sign the user in
 
