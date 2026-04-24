@@ -31,8 +31,10 @@ Pull the secret in-memory at the start of the skill, use it for any
 calls in this run, and `rm` the env file at the end:
 
 ```
-vercel env pull .env.production.local --environment=production
-# Use BODEGA_ADMIN_SECRET in-memory; never echo
+vercel env pull .env.production.local --environment=production --yes
+# `--yes` skips the overwrite-confirmation prompt (would hang in
+# non-TTY/agent shells if the file already exists).
+# Use BODEGA_ADMIN_SECRET in-memory; never echo.
 # ... (all magic-link / staff calls below) ...
 rm .env.production.local
 ```

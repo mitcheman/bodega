@@ -256,9 +256,10 @@ each redeploy creates a duplicate webhook and Stripe fires every event
 N times to the same endpoint.
 
 ```
-vercel env pull .env.production.local --environment=production
-# In-memory only. Use STRIPE_SECRET_KEY to call Stripe's webhooks API.
-# rm .env.production.local at end of step.
+vercel env pull .env.production.local --environment=production --yes
+# `--yes` skips the overwrite-confirmation prompt — without it,
+# vercel env pull hangs in non-TTY/agent shells if the file already
+# exists. In-memory only; rm .env.production.local at end of step.
 ```
 
 The intended endpoint URL:

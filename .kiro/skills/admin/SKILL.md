@@ -31,8 +31,10 @@ arbitrary emails.
 Read the secret from Vercel env (don't print the value):
 
 ```
-vercel env pull .env.production.local --environment=production
-# Use BODEGA_ADMIN_SECRET in-memory only; don't echo
+vercel env pull .env.production.local --environment=production --yes
+# `--yes` skips the overwrite-confirmation prompt (would hang in
+# non-TTY/agent shells if the file already exists).
+# Use BODEGA_ADMIN_SECRET in-memory only; don't echo.
 ```
 
 Then call the endpoint:
