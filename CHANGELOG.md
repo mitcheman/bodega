@@ -9,6 +9,10 @@ land in a minor-version bump.
 
 ## [Unreleased]
 
+(no changes yet)
+
+## [0.3.0] — 2026-04-24
+
 ### Round 5 — closes the deferred architectural items + validation issue
 
 Closes the five items previously TODO'd in `CLAUDE.md` (#14, #47,

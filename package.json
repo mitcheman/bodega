@@ -18,7 +18,9 @@
     "build:all": "pnpm build && pnpm build:sdks",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
-    "prepack": "pnpm build"
+    "prepack": "pnpm build",
+    "release": "node scripts/release.mjs",
+    "release:dry": "node scripts/release.mjs --dry-run"
   },
   "engines": {
     "node": ">=20"
