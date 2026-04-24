@@ -12,10 +12,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { Resend } from 'resend';
 import { createMagicLink } from '../auth/magic-link.js';
 import { getMagicLinkStorage } from '../auth/blob-storage.js';
+import { isEmailConfigured } from '../auth/email-config.js';
 
 const MERCHANT_EMAIL = () => process.env.BODEGA_MERCHANT_EMAIL?.toLowerCase();
-const FROM_ADDRESS = () =>
-  process.env.BODEGA_FROM_EMAIL ?? 'orders@bodega.my';
 const STORE_NAME = () => process.env.BODEGA_STORE_NAME ?? 'your store';
 
 let resendClient: Resend | null = null;
@@ -59,9 +58,30 @@ export async function POST(req: NextRequest) {
   const origin = new URL(req.url).origin;
   const verifyUrl = `${origin}/studio/verify?token=${record.token}`;
 
+  // Email-off path. RESEND_API_KEY or BODEGA_FROM_EMAIL isn't set yet —
+  // the deploy/SKILL.md Step 5 "skip email" path. We don't want to
+  // 500 on this public endpoint, and we don't want to return the URL
+  // in the response body (that would defeat anti-enumeration). Instead,
+  // log it server-side so the operator can find it via `vercel logs`,
+  // and respond with the same constant message. The merchant's actual
+  // first login goes through the admin endpoint via the bodega:admin
+  // skill, which CAN return the URL because it's admin-secret-gated.
+  const emailStatus = isEmailConfigured();
+  if (!emailStatus.ok) {
+    console.warn(
+      '[bodega auth] login requested but email not configured (%s). ' +
+        'Generated verify URL (use bodega:admin skill to surface to merchant): %s',
+      emailStatus.reason,
+      verifyUrl,
+    );
+    return ok;
+  }
+
+  const fromAddress = process.env.BODEGA_FROM_EMAIL!;
+
   try {
     await resend().emails.send({
-      from: `${STORE_NAME()} <${FROM_ADDRESS()}>`,
+      from: `${STORE_NAME()} <${fromAddress}>`,
       to: email,
       subject: `Your ${STORE_NAME()} studio login link`,
       html: renderLoginEmail(STORE_NAME(), verifyUrl),

@@ -5,29 +5,30 @@
 // Mount at app/studio/login/page.tsx:
 //   import { LoginPage } from '@mitcheman/bodega';
 //   export default LoginPage;
+//
+// IMPORTANT: this file is mounted at app/studio/login/page.tsx, NOT
+// inside the (authed) route group. Putting it under (authed) would
+// trigger the StudioLayout redirect, which sends unauth'd visitors
+// back to /studio/login — infinite bounce.
+//
+// useSearchParams() is wrapped in <Suspense> internally per Next.js
+// 15+ requirements. Without the boundary, the page fails to prerender
+// with "useSearchParams() should be wrapped in a suspense boundary".
+// We keep the boundary inside the SDK so the consumer's page.tsx can
+// stay a one-liner re-export.
 
-import { useState, useTransition } from 'react';
+import { Suspense, useState, useTransition } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 export function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [pending, startTransition] = useTransition();
-  const [sent, setSent] = useState(false);
-  const params = useSearchParams();
-  const error = params.get('error');
+  return (
+    <Suspense fallback={<LoginShell />}>
+      <LoginForm />
+    </Suspense>
+  );
+}
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    startTransition(async () => {
-      await fetch('/api/bodega/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      setSent(true);
-    });
-  }
-
+function LoginShell({ children }: { children?: React.ReactNode }) {
   return (
     <div
       style={{
@@ -55,78 +56,103 @@ export function LoginPage() {
           Enter the email your studio is set up with. We'll send you a
           one-time link.
         </p>
-
-        {sent ? (
-          <div
-            style={{
-              padding: '1.25rem 1.5rem',
-              background: 'var(--bodega-muted)',
-              color: 'var(--bodega-bg)',
-            }}
-          >
-            <p style={{ margin: 0 }}>
-              If that email belongs to this store, a login link is on its
-              way. Check your inbox — it can take a minute. Check spam if
-              you don't see it.
-            </p>
-          </div>
-        ) : (
-          <form
-            onSubmit={onSubmit}
-            style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
-          >
-            {error && (
-              <div
-                role="alert"
-                style={{
-                  padding: '0.75rem 1rem',
-                  background: 'rgba(200, 50, 50, 0.1)',
-                  color: '#b52a2a',
-                  fontSize: '0.9rem',
-                }}
-              >
-                {decodeURIComponent(error)}
-              </div>
-            )}
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>Email</span>
-              <input
-                type="email"
-                required
-                autoFocus
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                style={{
-                  padding: '0.75rem',
-                  fontSize: '1rem',
-                  border: '1px solid var(--bodega-muted)',
-                  background: 'var(--bodega-bg)',
-                  color: 'var(--bodega-fg)',
-                  fontFamily: 'inherit',
-                }}
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={pending}
-              style={{
-                padding: '0.875rem 1.5rem',
-                fontSize: '1rem',
-                fontWeight: 500,
-                color: 'var(--bodega-bg)',
-                background: 'var(--bodega-accent)',
-                border: 'none',
-                cursor: pending ? 'wait' : 'pointer',
-                opacity: pending ? 0.7 : 1,
-                fontFamily: 'inherit',
-              }}
-            >
-              {pending ? 'Sending…' : 'Send me a link'}
-            </button>
-          </form>
-        )}
+        {children}
       </div>
     </div>
+  );
+}
+
+function LoginForm() {
+  const [email, setEmail] = useState('');
+  const [pending, startTransition] = useTransition();
+  const [sent, setSent] = useState(false);
+  const params = useSearchParams();
+  const error = params.get('error');
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    startTransition(async () => {
+      await fetch('/api/bodega/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      setSent(true);
+    });
+  }
+
+  return (
+    <LoginShell>
+      {sent ? (
+        <div
+          style={{
+            padding: '1.25rem 1.5rem',
+            background: 'var(--bodega-muted)',
+            color: 'var(--bodega-bg)',
+          }}
+        >
+          <p style={{ margin: 0 }}>
+            If that email belongs to this store, a login link is on its
+            way. Check your inbox — it can take a minute. Check spam if
+            you don't see it.
+          </p>
+        </div>
+      ) : (
+        <form
+          onSubmit={onSubmit}
+          style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+        >
+          {error && (
+            <div
+              role="alert"
+              style={{
+                padding: '0.75rem 1rem',
+                background: 'rgba(200, 50, 50, 0.1)',
+                color: '#b52a2a',
+                fontSize: '0.9rem',
+              }}
+            >
+              {decodeURIComponent(error)}
+            </div>
+          )}
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>Email</span>
+            <input
+              type="email"
+              required
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              style={{
+                padding: '0.75rem',
+                fontSize: '1rem',
+                border: '1px solid var(--bodega-muted)',
+                background: 'var(--bodega-bg)',
+                color: 'var(--bodega-fg)',
+                fontFamily: 'inherit',
+              }}
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={pending}
+            style={{
+              padding: '0.875rem 1.5rem',
+              fontSize: '1rem',
+              fontWeight: 500,
+              color: 'var(--bodega-bg)',
+              background: 'var(--bodega-accent)',
+              border: 'none',
+              cursor: pending ? 'wait' : 'pointer',
+              opacity: pending ? 0.7 : 1,
+              fontFamily: 'inherit',
+            }}
+          >
+            {pending ? 'Sending…' : 'Send me a link'}
+          </button>
+        </form>
+      )}
+    </LoginShell>
   );
 }

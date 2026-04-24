@@ -20,10 +20,34 @@ user's preference yet):
 ## Step 1 — Gather state
 
 Read `.bodega.md`. Also verify:
-- Vercel project still linked (`vercel project inspect`)
+- Vercel project still linked (`vercel project inspect --json`)
 - Site responds (HEAD request to deploy URL)
 - `/studio` responds
 - GitHub repo exists (if `state.backup: done`)
+
+### Handle remote-call failures gracefully
+
+Each remote check can fail for reasons unrelated to the store
+("Vercel auth expired", "DNS hiccup", "GitHub rate-limit"). Status is
+read-only, so a failure here is **not** an error to bail on — it's a
+data point to report.
+
+Wrap every remote call. On failure, mark the row `[?]` and surface a
+one-line reason + the exact remediation command. Don't crash and don't
+print stack traces. Translation table:
+
+| Symptom | Report (developer voice) | Report (simple voice) |
+|---|---|---|
+| `vercel project inspect` non-zero exit, stderr contains "not authenticated" / "credentials" | `vercel: auth expired — run \`vercel login --github\`` | "I can't talk to Vercel right now — your login expired. Want me to walk you through signing back in?" |
+| `vercel project inspect` non-zero exit, stderr contains "not linked" | `vercel: project unlinked — re-run \`{{command_prefix}}bodega:hosting\`` | "Your project isn't connected to Vercel anymore. Want me to reconnect it?" |
+| `vercel project inspect` non-zero exit, any other reason | `vercel: query failed (<short stderr line>)` | "Something went wrong checking your hosting. Try again in a minute." |
+| HEAD request to deploy URL timeouts / connection refused | `site: unreachable (will retry once)` | "Your site didn't answer. I'll try one more time." |
+| HEAD request returns 5xx | `site: returns <status>` | "Your store is responding with an error code (`<status>`)." |
+| `gh repo view <owner>/<repo>` 401 | `github: auth expired — run \`gh auth login --web\`` | "I can't see GitHub right now — your login expired." |
+| `gh repo view` 404 | `github: repo missing (was it renamed or deleted?)` | "Your backup repo isn't there anymore. Check your GitHub account." |
+
+Surface the failed checks alongside the working ones — never let one
+broken probe blank out the rest of the status table.
 
 ## Step 2 — Report
 

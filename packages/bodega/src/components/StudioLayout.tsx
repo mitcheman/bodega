@@ -3,16 +3,22 @@ import Link from 'next/link';
 import { getSession } from '../auth/session.js';
 
 /**
- * App-level layout for everything under /studio (except /studio/login and
- * /studio/verify, which need to be accessible unauthenticated).
+ * Auth-gated layout for the studio. Reads the session cookie server-side
+ * and redirects to /studio/login if absent. Wraps children with a minimal
+ * shell: header, nav, content area.
  *
- * Reads the session cookie server-side; redirects to /studio/login if
- * absent. Wraps children with a minimal shell: header, nav, content area.
+ * IMPORTANT: mount this in a (authed) route group, NOT at app/studio/layout.tsx
+ * directly. If it wraps /studio/login, the redirect bounces back into the
+ * same layout and you get an infinite loop.
  *
- * Usage:
- *   // app/studio/layout.tsx
+ * Correct mount:
+ *   // app/studio/(authed)/layout.tsx
  *   import { StudioLayout } from '@mitcheman/bodega';
  *   export default StudioLayout;
+ *
+ * Then put authed pages under app/studio/(authed)/ and leave
+ * /studio/login + /studio/verify outside the group, so they render
+ * without the layout chrome and without the auth gate.
  */
 export default async function StudioLayout({
   children,

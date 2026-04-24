@@ -9,6 +9,163 @@ land in a minor-version bump.
 
 ## [Unreleased]
 
+### Real-test fixes — round 4: deploy bundle, doctor depth, backup/status polish
+
+Closes the 10 P0/P1/P2 items still open after rounds 1–3.
+
+#### P0 — `vercel deploy` 413 on >10MB projects (#29)
+
+Real-test discovery: muddmannstudio's ~20 MB photo library hit Vercel's
+10 MB request body limit on plain `vercel deploy --prod`. Deploy
+silently failed (CLI showed an error but the user couldn't tell what
+to do).
+
+Fix: `deploy/SKILL.md` Step 7 split into 7a/7b/7c. Step 7a writes a
+`.vercelignore` baseline (excludes `node_modules`, `.next`, `.git`,
+common large-media dirs like `public/raw`, `public/originals`,
+`drafts`, `*.psd`, `.env*.local`). Step 7b sizes the upload via
+`du -sh` and routes ≥50 MB or post-413-failure projects through
+`vercel build --prod && vercel deploy --prebuilt --prod`, which
+uploads only the build output. Step 7c adds a `413` row to the
+error-translation table.
+
+#### P1 — undici CVEs in `@vercel/blob@^1.0.0` (#46)
+
+`@vercel/blob` 1.x pinned `undici ^5.28.4`, which `npm audit` flagged
+as high-severity (no-fix-available on the v1 branch). Bumped
+`packages/bodega/package.json` to `@vercel/blob: ^2.3.3`, which uses
+`undici ^6.23.0` → resolves to ≥6.25.0 at install time, past the CVE.
+API surface (`put`, `del`, `list`) unchanged across the major bump;
+typecheck passes without any source changes. `pnpm audit --prod` now
+returns clean.
+
+#### P1 — Deploy SKILL gaps (#27, #28, #30, #35, #36)
+
+- **#27** Products route methods enumerated. New `Multi-method routes
+  — exact exports` table in deploy/SKILL.md Step 3 spells out the
+  exact `export { POST }` / `export { PATCH, DELETE }` lines for every
+  SDK route file. Removes the "agent must introspect SDK" footgun.
+- **#28** `CartProvider` wrap is now gated on
+  `site_mode in {digital, commerce}`. Marketing and showcase modes
+  skip the wrap (no cart → no provider needed → don't pull a client
+  component into root layout for nothing).
+- **#30** `.vercelignore` baseline is now part of Step 7a (paired with
+  the `--prebuilt` fallback above).
+- **#35** New Step 2.5 — "Isolate the marketing layout (if it'd
+  collide)." Detects nav/footer in the merchant's existing
+  `app/layout.tsx`, walks them through moving the marketing chrome
+  into `app/(site)/layout.tsx` so studio + shop don't inherit the
+  marketing nav. Skip-if-already-minimal short-circuit.
+- **#36** Documents StudioLayout's default-vs-named export
+  ambiguity — the SDK exports both, scaffolds standardize on the
+  named import.
+
+#### P1 — Doctor checks gain three project-linked probes (#6, #8, #9)
+
+When `.vercel/project.json` exists, doctor now runs (skipped silently
+otherwise — pre-link state stays clean):
+
+- **#6** `checkVercelNodeMatch` — runs `vercel project inspect --json`,
+  parses `nodeVersion`, compares to `process.versions.node`. Warns on
+  major-version mismatch with both remediations (nvm-install or
+  Vercel-side change). Catches the "local Node 24, project Node 20"
+  silent-divergence pattern.
+- **#8** `checkBlobToken` — runs `vercel env ls production`, looks for
+  `BLOB_READ_WRITE_TOKEN`. Warns if absent ("/studio image upload + product storage will 500"). Names-only, never reads values.
+- **#9** `checkResendConfig` — same approach for `RESEND_API_KEY` +
+  `BODEGA_FROM_EMAIL`. Treats neither-set as opt-in (matches the
+  email-opt-in default; reminds user the bootstrap-link path is
+  active). Warns on half-configured states. Doesn't try to verify the
+  Resend domain server-side (would require pulling the API key into
+  doctor) — surfaces a manual-check reminder instead.
+
+A shared `vercelEnvNames()` helper memoizes the `vercel env ls` call
+so the three probes share one subprocess.
+
+#### P2 — Polish (#3, #40, #42)
+
+- **#3** `bodega.my/public/llm-setup.txt`: added a top-of-file
+  "DO NOT SUMMARIZE" preamble for fetch proxies / summarizing
+  middlemen, listing the load-bearing flags (`--yes`, `--global`,
+  `--prod`, `--prebuilt`, `--scope=`) and pointing at the lossless
+  json/txt alternates.
+- **#40** Per-deploy auto-push opt-out documented in deploy/SKILL.md
+  Step 10. Two paths: `BODEGA_NO_PUSH=1` env var (CI / one-shot
+  override) and `--no-push` invocation flag for standalone runs.
+  Project-wide `auto_push: true` stays untouched.
+- **#42** status/SKILL.md gains a "handle remote-call failures
+  gracefully" sub-section under Step 1, with a translation table
+  mapping common Vercel/GitHub auth/connectivity failures to
+  user-visible reports + remediation commands. Previously, a stale
+  Vercel auth blanked out the whole status table.
+
+### Real-test fixes — round 3: studio auth flow
+
+Two studio-login bugs surfaced during a real first-deploy run, plus the
+follow-on for the email opt-in shipped in `00c4eaf`.
+
+#### P0 — `/studio/login` infinite redirect loop
+
+`StudioLayout` is auth-gated: no session cookie → `redirect('/studio/login')`.
+The deploy/SKILL.md scaffold mounted it at `app/studio/layout.tsx`, which
+in App Router wraps every descendant — including `app/studio/login/page.tsx`
+itself. So the unauth'd visitor hit the layout, got redirected to
+`/studio/login`, hit the same layout, redirected again. Forever.
+
+Fix: route groups. Authed pages move under `app/studio/(authed)/`, with
+the layout mounted at `app/studio/(authed)/layout.tsx`. `/studio/login`
+and `/studio/verify` stay outside the group, so the auth-gating layout
+never wraps them. URLs are unchanged — Next.js strips the `(group)`
+segment from the routed path. `StudioLayout`'s docstring now spells out
+the correct mount point with a redirect-loop warning.
+
+#### P0 — `LoginPage` `useSearchParams()` without `<Suspense>`
+
+Next.js 15+ requires `useSearchParams()`-using components to be wrapped
+in a Suspense boundary, otherwise prerender fails with
+"useSearchParams() should be wrapped in a suspense boundary." The
+SDK's `LoginPage` read `params.get('error')` at the top level. Consumers
+following the SKILL's one-line `export default LoginPage` couldn't have
+known they needed to wrap.
+
+Fix: split into `LoginPage` (Suspense wrapper + skeleton fallback) and
+`LoginForm` (search-params-reading inner). The boundary lives inside
+the SDK so consumer page.tsx files stay one-liner re-exports.
+
+#### Email opt-in: bootstrap link path (Option A, secure)
+
+`00c4eaf` made email opt-in. That fix had a hole: with email off, the
+merchant couldn't actually log in to `/studio` — `auth-login` would 500
+on the missing `RESEND_API_KEY`, and even fixing that left the merchant
+locked out (the link had nowhere to go).
+
+Fix: when `RESEND_API_KEY` or `BODEGA_FROM_EMAIL` is unset, the
+admin-protected `/api/bodega/auth/magic-link` endpoint returns the
+verify URL in the response body (`email_sent: false`, `verify_url`)
+instead of attempting to send. The `bodega:admin` and `bodega:invite`
+skills branch on the flag and surface the URL to the operator with
+explicit "this grants owner access, don't paste in chat" warnings.
+
+Security analysis (full version in admin/SKILL.md Step 1):
+- Endpoint stays gated by `BODEGA_ADMIN_SECRET`. No public path returns
+  a link.
+- The endpoint already echoed `verify_url` in the success-path response
+  body, so the bootstrap path is the same shape — no new privilege.
+- Anyone holding `BODEGA_ADMIN_SECRET` already controls the deployment
+  and can read `BODEGA_SESSION_SECRET` to forge sessions directly.
+  We're not opening a new path, just making an existing one usable
+  when Resend isn't configured.
+- Public `/api/bodega/auth/login` still returns the constant
+  anti-enumeration message and never exposes a link in the body. When
+  email is off it logs the URL server-side (`vercel logs` access only).
+- Token entropy (32 bytes), TTL (24h), single-use consumption — all
+  unchanged.
+
+Also dropped the dead `'orders@bodega.my'` fallback in `auth-login.ts`
+and `auth-magic-link.ts` (would have caused Resend 403s if ever hit;
+the explicit `isEmailConfigured()` check makes the fallback impossible
+to reach).
+
 ### Real-test fixes — round 2: sub-skill audit (P0/P1/P2 batch)
 
 Static review across all sub-skills surfaced more breakage points

@@ -115,7 +115,7 @@
   "dependencies": {
     "@stripe/stripe-js": "^4.0.0",
     "@stripe/react-stripe-js": "^3.0.0",
-    "@vercel/blob": "^1.0.0",
+    "@vercel/blob": "^2.3.3",
     "resend": "^4.0.0",
     "stripe": "^17.0.0"
   },

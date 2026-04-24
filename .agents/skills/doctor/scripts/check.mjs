@@ -244,6 +244,212 @@ function checkProject() {
   };
 }
 
+// ─── Vercel-linked-project checks ─────────────────────────────────────
+//
+// Each one returns a "skip" sentinel (informational, ok:true) when the
+// project isn't linked to Vercel yet. They only do real work after
+// `vercel link` has run (i.e. .vercel/project.json exists).
+
+function isVercelLinked() {
+  return fs.existsSync('.vercel/project.json');
+}
+
+function checkVercelNodeMatch() {
+  if (!isVercelLinked()) {
+    return {
+      label: 'Vercel project Node version',
+      value: 'skipped (not linked yet)',
+      ok: true,
+      critical: false,
+      fix: null,
+      informational: true,
+    };
+  }
+  const raw = tryCmd('vercel project inspect --json 2>/dev/null');
+  if (!raw) {
+    return {
+      label: 'Vercel project Node version',
+      value: 'could not query (auth expired? try `vercel login --github`)',
+      ok: false,
+      critical: false,
+      fix: 'Re-authenticate: `vercel login --github`. Then re-run doctor.',
+    };
+  }
+  let project;
+  try {
+    project = JSON.parse(raw);
+  } catch {
+    return {
+      label: 'Vercel project Node version',
+      value: 'inspect output not JSON',
+      ok: false,
+      critical: false,
+      fix: 'Verify your Vercel CLI is 50+ (`vercel --version`).',
+    };
+  }
+  // Vercel returns nodeVersion as e.g. "20.x" or "22.x".
+  const projectNode = project?.nodeVersion ?? project?.framework?.nodeVersion;
+  if (!projectNode) {
+    return {
+      label: 'Vercel project Node version',
+      value: 'unknown (no nodeVersion field on project)',
+      ok: true,
+      critical: false,
+      fix: null,
+      informational: true,
+    };
+  }
+  const projectMajor = parseInt(String(projectNode).match(/(\d+)/)?.[1] ?? '', 10);
+  const localMajor = parseInt(process.versions.node.split('.')[0], 10);
+  if (!projectMajor) {
+    return {
+      label: 'Vercel project Node version',
+      value: `${projectNode} (cannot parse)`,
+      ok: true,
+      critical: false,
+      fix: null,
+      informational: true,
+    };
+  }
+  if (projectMajor !== localMajor) {
+    return {
+      label: 'Vercel project Node version',
+      value: `project ${projectNode} vs local ${process.versions.node}`,
+      ok: false,
+      critical: false,
+      fix:
+        `Build behavior may diverge. Match locally: install Node ${projectMajor}.x ` +
+        `(via nvm) OR change the project's Node version on Vercel ` +
+        `(Project → Settings → General → Node.js Version).`,
+    };
+  }
+  return {
+    label: 'Vercel project Node version',
+    value: `${projectNode} (matches local ${process.versions.node})`,
+    ok: true,
+    critical: false,
+    fix: null,
+  };
+}
+
+// Lazy: cache `vercel env ls` output across the env-presence checks so we
+// only spawn the subprocess once.
+let _envCache = undefined;
+function vercelEnvNames() {
+  if (_envCache !== undefined) return _envCache;
+  if (!isVercelLinked()) {
+    _envCache = null;
+    return _envCache;
+  }
+  // Production env var NAMES only — values never read.
+  const out = tryCmd('vercel env ls production 2>/dev/null');
+  if (!out) {
+    _envCache = null;
+    return _envCache;
+  }
+  // Crude but good enough — match leading-token names (uppercase + underscore).
+  const names = new Set();
+  for (const line of out.split('\n')) {
+    const m = line.match(/^\s*([A-Z][A-Z0-9_]+)\b/);
+    if (m) names.add(m[1]);
+  }
+  _envCache = names;
+  return _envCache;
+}
+
+function checkBlobToken() {
+  const env = vercelEnvNames();
+  if (env === null) {
+    return {
+      label: 'BLOB_READ_WRITE_TOKEN (Vercel)',
+      value: 'skipped (not linked / not authed)',
+      ok: true,
+      critical: false,
+      fix: null,
+      informational: true,
+    };
+  }
+  if (env.has('BLOB_READ_WRITE_TOKEN')) {
+    return {
+      label: 'BLOB_READ_WRITE_TOKEN (Vercel)',
+      value: 'present',
+      ok: true,
+      critical: false,
+      fix: null,
+    };
+  }
+  return {
+    label: 'BLOB_READ_WRITE_TOKEN (Vercel)',
+    value: 'missing — image uploads + product storage will 500',
+    ok: false,
+    critical: false,
+    fix:
+      'Connect your blob store: `vercel blob store connect bodega-store` ' +
+      '(or whichever store name you used). Re-run doctor.',
+  };
+}
+
+function checkResendConfig() {
+  const env = vercelEnvNames();
+  if (env === null) {
+    return {
+      label: 'Email (Resend)',
+      value: 'skipped (not linked / not authed)',
+      ok: true,
+      critical: false,
+      fix: null,
+      informational: true,
+    };
+  }
+  const hasKey = env.has('RESEND_API_KEY');
+  const hasFrom = env.has('BODEGA_FROM_EMAIL');
+  if (!hasKey && !hasFrom) {
+    // Email opt-in is the recommended default — see deploy/SKILL.md Step 5.
+    // Bootstrap-link path covers the studio-login case meanwhile.
+    return {
+      label: 'Email (Resend)',
+      value: 'opt-in: not configured (bootstrap link path active)',
+      ok: true,
+      critical: false,
+      fix: null,
+      informational: true,
+    };
+  }
+  if (hasKey && !hasFrom) {
+    return {
+      label: 'Email (Resend)',
+      value: 'RESEND_API_KEY set, BODEGA_FROM_EMAIL missing',
+      ok: false,
+      critical: false,
+      fix:
+        'Set BODEGA_FROM_EMAIL to a verified-on-Resend address ' +
+        '(e.g. orders@yourshop.com). Verify the domain at ' +
+        'https://resend.com/domains first.',
+    };
+  }
+  if (!hasKey && hasFrom) {
+    return {
+      label: 'Email (Resend)',
+      value: 'BODEGA_FROM_EMAIL set, RESEND_API_KEY missing',
+      ok: false,
+      critical: false,
+      fix:
+        'Add the API key: `vercel env add RESEND_API_KEY production` ' +
+        '(get one at https://resend.com/api-keys).',
+    };
+  }
+  // Both set. Doctor can't verify Resend domain status without revealing
+  // the key — surface the manual check instead.
+  return {
+    label: 'Email (Resend)',
+    value: 'configured (verify domain at resend.com/domains if mail bounces)',
+    ok: true,
+    critical: false,
+    fix: null,
+    informational: true,
+  };
+}
+
 function checkImpeccable() {
   const has = fs.existsSync('.impeccable.md');
   return {
@@ -339,6 +545,10 @@ function main() {
     checkProject(),
     checkImpeccable(),
     checkBodegaConfig(),
+    // Project-linked checks — quietly skip when .vercel/project.json absent.
+    checkVercelNodeMatch(),
+    checkBlobToken(),
+    checkResendConfig(),
   ];
 
   const { text, criticalFails } = render(results, voice);

@@ -2,7 +2,8 @@
 //
 // Admin-facing endpoint. Called by the bodega:admin and bodega:invite
 // skills (from scripts, not from the browser) to create a magic link for
-// a specific merchant or staff member and email it to them.
+// a specific merchant or staff member and either email it or return it
+// in the response (when email isn't configured yet).
 //
 // Protected by BODEGA_ADMIN_SECRET — the skill scripts include this
 // header when calling. Reject requests without it.
@@ -14,6 +15,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { Resend } from 'resend';
 import { createMagicLink, type StudioRole } from '../auth/magic-link.js';
 import { getMagicLinkStorage } from '../auth/blob-storage.js';
+import { isEmailConfigured } from '../auth/email-config.js';
 
 let resendClient: Resend | null = null;
 function resend(): Resend {
@@ -59,7 +61,33 @@ export async function POST(req: NextRequest) {
   const origin = new URL(req.url).origin;
   const verifyUrl = `${origin}/studio/verify?token=${record.token}`;
   const storeName = process.env.BODEGA_STORE_NAME ?? 'your store';
-  const fromAddress = process.env.BODEGA_FROM_EMAIL ?? 'orders@bodega.my';
+
+  // Email-off bootstrap path. The merchant deployed without configuring
+  // Resend (the recommended default — see deploy/SKILL.md Step 5). Hand
+  // the link back to the calling skill so the operator can show it to
+  // the merchant manually. Safe because:
+  //   1. This endpoint is admin-secret-gated; only the operator's
+  //      skill scripts can reach it.
+  //   2. Anyone holding BODEGA_ADMIN_SECRET could already mint a link
+  //      AND read it from the response (we already echo verify_url
+  //      below in the success path), so this path doesn't expand
+  //      privilege — it just removes the email side-channel.
+  //   3. The link is still a 24h, one-time-use, 32-byte token.
+  // The corresponding security note lives in source/skills/admin/SKILL.md.
+  const emailStatus = isEmailConfigured();
+  if (!emailStatus.ok) {
+    return NextResponse.json({
+      message: 'Magic link generated. Email is not configured — show this URL to the user manually.',
+      email_sent: false,
+      email_unconfigured_reason: emailStatus.reason,
+      verify_url: verifyUrl,
+      expires_at: record.expires_at,
+    });
+  }
+
+  // Email-on path. From here, both RESEND_API_KEY and BODEGA_FROM_EMAIL
+  // are guaranteed present (isEmailConfigured() short-circuits otherwise).
+  const fromAddress = process.env.BODEGA_FROM_EMAIL!;
 
   const html =
     body?.html ??
@@ -100,8 +128,9 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     message: 'Magic link sent.',
-    // We echo the token only to the authenticated admin caller — useful
-    // for scripts that want to log or cache the URL. Never expose this
+    email_sent: true,
+    // We echo the URL only to the authenticated admin caller — useful
+    // for scripts that want to log or cache it. Never expose this
     // endpoint publicly.
     verify_url: verifyUrl,
     expires_at: record.expires_at,

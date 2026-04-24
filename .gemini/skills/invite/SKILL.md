@@ -57,15 +57,45 @@ Body:
   { "email": "<target>", "role": "owner" }
 ```
 
-Send the email. Confirm:
+Branch on the response's `email_sent` flag (same shape as the admin
+skill — see `admin/SKILL.md` Step 1 for the security analysis):
 
-### Simple voice:
+### `email_sent: true` — email delivered
+
+#### Simple voice:
 
 > ✓ Sent. They should see it in about a minute. Check spam if not.
 
-### Developer voice:
+#### Developer voice:
 
 > ✓ Magic link sent to <email>. Expires in 24h.
+
+### `email_sent: false` — email isn't configured yet
+
+The response body has `verify_url`. Show it directly to the operator
+(the link bypasses email entirely; safe because the endpoint is
+admin-secret-gated):
+
+#### Simple voice:
+
+> Email isn't set up for this store yet, so I can't send the link
+> automatically. Here's the URL — you'll need to forward it to them
+> yourself (text, signal, in person, whatever feels right):
+>
+>   <verify_url>
+>
+> One-time use, expires in 24 hours, full owner access. Don't paste
+> it anywhere public.
+
+#### Developer voice:
+
+> Email unconfigured (RESEND_API_KEY / BODEGA_FROM_EMAIL unset).
+> Bootstrap URL (24h TTL, single-use):
+>
+>   <verify_url>
+>
+> Forward out-of-band. Configure Resend + redeploy when ready for
+> automated email.
 
 ## Step 2b — Invite staff
 
@@ -94,6 +124,13 @@ Body:
 ```
 
 Send a different email template (welcome-staff, not welcome-owner).
+
+Same `email_sent` branching as Step 2a — if `email_sent: false`, show
+the staff member's bootstrap URL to the operator and remind them to
+forward it directly. Worth flagging that the role scope (packer /
+product-editor / manager) is baked into the link's session, so giving
+the URL to the wrong person grants whatever role you minted it for —
+mint cautiously when bypassing email.
 
 Record in `.bodega.md`:
 

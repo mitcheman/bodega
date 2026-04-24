@@ -72,6 +72,47 @@ vars (`--bodega-bg`, `--bodega-fg`, `--bodega-accent`, `--bodega-muted`,
 
 Import from `app/layout.tsx`.
 
+## Step 2.5 — Isolate the marketing layout (if it'd collide)
+
+The merchant's existing `app/layout.tsx` typically wraps every page in
+their site nav + footer. That's correct for the marketing pages — but
+once we add `/shop`, `/cart`, `/checkout`, and `/studio`, they all
+inherit the same chrome. Studio especially looks broken with the
+marketing nav floating above it.
+
+**Detect**: read `app/layout.tsx`. If it imports/renders anything that
+looks like a site nav (`<Nav />`, `<Header />`, `<SiteHeader />`,
+`<Footer />`, etc. — anything beyond `html`/`body`/providers), the
+collision will happen.
+
+**Fix** (small, mechanical refactor): use a route group.
+
+1. Create `app/(site)/layout.tsx` — move the nav/footer/marketing
+   chrome here. This layout wraps only the merchant's marketing pages.
+2. Move the merchant's existing marketing pages into `app/(site)/`:
+   `app/page.tsx` → `app/(site)/page.tsx`, `app/about/page.tsx` →
+   `app/(site)/about/page.tsx`, etc. URLs stay identical (Next.js
+   strips `(site)` from the path).
+3. Strip the moved-down chrome out of `app/layout.tsx`. The root layout
+   becomes minimal — just `<html><body>{children}</body></html>` plus
+   global CSS imports, fonts, and (for digital/commerce modes)
+   `<CartProvider>`. This is the layout that wraps everything,
+   including studio + shop.
+
+After: marketing nav appears on `/`, `/about`, `/contact`, etc., and
+NOT on `/studio`, `/cart`, `/checkout`. Studio gets only the
+`StudioLayout` chrome from its `(authed)` group; shop/cart/checkout get
+no chrome by default (the SDK pages provide their own).
+
+**Skip this step entirely** if the merchant's `app/layout.tsx` is
+already minimal (just html/body/providers — no nav, no footer). In
+that case there's nothing to isolate.
+
+> **Why route groups not new top-level dirs?** Route groups (`(name)`)
+> let layouts diverge without changing URLs. Putting marketing pages
+> under `app/marketing/` would change `/about` to `/marketing/about`,
+> which the merchant did not ask for.
+
 ## Step 3 — Scaffold commerce routes
 
 Create these files (if not present). Every server-component page that
@@ -79,13 +120,13 @@ reads from storage needs `export const dynamic = 'force-dynamic'` —
 products, inventory, and orders change per-request, so SSG would lie.
 
 ```
-app/shop/page.tsx                       # ProductGrid (dynamic)
-app/shop/[slug]/page.tsx                # ProductPage (dynamic)
-app/cart/page.tsx                       # Cart (client)
-app/checkout/page.tsx                   # Checkout (client, Stripe Elements)
-app/api/stripe/webhook/route.ts         # re-export from SDK
-app/api/bodega/cart/route.ts            # re-export
-app/api/bodega/cart/items/route.ts      # re-export
+app/shop/page.tsx                                 # ProductGrid (dynamic)
+app/shop/[slug]/page.tsx                          # ProductPage (dynamic)
+app/cart/page.tsx                                 # Cart (client)
+app/checkout/page.tsx                             # Checkout (client, Stripe Elements)
+app/api/stripe/webhook/route.ts                   # re-export from SDK
+app/api/bodega/cart/route.ts                      # re-export
+app/api/bodega/cart/items/route.ts                # re-export
 app/api/bodega/cart/items/[product_id]/route.ts
 app/api/bodega/checkout/route.ts
 app/api/bodega/auth/login/route.ts
@@ -94,16 +135,54 @@ app/api/bodega/auth/magic-link/route.ts
 app/api/bodega/products/route.ts
 app/api/bodega/products/[id]/route.ts
 app/api/bodega/orders/[id]/ship/route.ts
-app/studio/layout.tsx                   # StudioLayout (auth-gated)
-app/studio/page.tsx                     # StudioHome (dynamic)
-app/studio/login/page.tsx               # LoginPage (client)
-app/studio/verify/route.ts              # magic-link consume
-app/studio/products/page.tsx            # ProductsPage (dynamic)
-app/studio/products/new/page.tsx        # ProductEditor (client)
-app/studio/products/[id]/page.tsx       # ProductEditor with product (dynamic)
-app/studio/orders/page.tsx              # OrdersPage (dynamic)
-app/studio/orders/[id]/page.tsx         # OrderDetail (dynamic)
+
+# /studio uses a (authed) route group so the auth-gating layout doesn't
+# wrap /studio/login and /studio/verify. If StudioLayout wraps the login
+# page, the redirect to /studio/login bounces forever. See "Studio route
+# group" note below.
+app/studio/login/page.tsx                         # LoginPage (client) — outside (authed)
+app/studio/verify/route.ts                        # magic-link consume — outside (authed)
+app/studio/(authed)/layout.tsx                    # StudioLayout (auth-gated)
+app/studio/(authed)/page.tsx                      # StudioHome (dynamic)
+app/studio/(authed)/products/page.tsx             # ProductsPage (dynamic)
+app/studio/(authed)/products/new/page.tsx         # ProductEditor (client)
+app/studio/(authed)/products/[id]/page.tsx        # ProductEditor with product (dynamic)
+app/studio/(authed)/orders/page.tsx               # OrdersPage (dynamic)
+app/studio/(authed)/orders/[id]/page.tsx          # OrderDetail (dynamic)
 ```
+
+### Studio route group
+
+Three routes need to render WITHOUT the auth-gating chrome:
+
+- `/studio/login` — the unauth'd entry point. If StudioLayout wraps it,
+  the layout's `redirect('/studio/login')` re-enters the layout and
+  bounces forever.
+- `/studio/verify` — a route handler that consumes a magic-link token
+  and sets the session cookie. Layouts don't apply to route handlers,
+  so technically it's fine either way — but keeping it parallel to
+  /studio/login keeps the structure obvious.
+- (no shared `app/studio/layout.tsx` is created — Next.js doesn't
+  require one, and the (authed) group provides its own.)
+
+The pattern:
+
+```
+app/studio/
+├── login/
+│   └── page.tsx              # no layout chrome, no auth gate
+├── verify/
+│   └── route.ts              # route handler, no layout
+└── (authed)/                 # route group — URLs do NOT include "(authed)"
+    ├── layout.tsx            # StudioLayout — auth gate + chrome
+    ├── page.tsx              # /studio
+    ├── products/...          # /studio/products/...
+    └── orders/...            # /studio/orders/...
+```
+
+URLs stay `/studio/products`, `/studio`, etc. — Next.js strips the
+`(group)` segment from the URL. The grouping only affects which layout
+files apply.
 
 Each is a thin wrapper importing `@mitcheman/bodega`.
 
@@ -136,17 +215,66 @@ export { POST } from '@mitcheman/bodega/routes/upload';
 export { GET } from '@mitcheman/bodega/routes/cart';
 ```
 
-**Admin layout example** (`app/studio/layout.tsx`):
+**Multi-method routes — exact exports.** A few SDK route modules
+expose more than one HTTP method. Each Next.js route file has to
+export the methods it serves; "just `export *`" works but the table
+below makes the intent explicit:
+
+| Route file | Exports |
+|---|---|
+| `app/api/bodega/products/route.ts` | `export { POST } from '@mitcheman/bodega/routes/products';` |
+| `app/api/bodega/products/[id]/route.ts` | `export { PATCH, DELETE } from '@mitcheman/bodega/routes/products';` |
+| `app/api/bodega/cart/route.ts` | `export { GET } from '@mitcheman/bodega/routes/cart';` |
+| `app/api/bodega/cart/items/route.ts` | `export { POST } from '@mitcheman/bodega/routes/cart-items';` |
+| `app/api/bodega/cart/items/[product_id]/route.ts` | `export { PATCH, DELETE } from '@mitcheman/bodega/routes/cart-items';` |
+| `app/api/bodega/checkout/route.ts` | `export { POST } from '@mitcheman/bodega/routes/checkout';` |
+| `app/api/bodega/orders/[id]/ship/route.ts` | `export { POST } from '@mitcheman/bodega/routes/orders';` |
+| `app/api/bodega/auth/login/route.ts` | `export { POST } from '@mitcheman/bodega/routes/auth-login';` |
+| `app/api/bodega/auth/logout/route.ts` | `export { POST } from '@mitcheman/bodega/routes/auth-logout';` |
+| `app/api/bodega/auth/magic-link/route.ts` | `export { POST } from '@mitcheman/bodega/routes/auth-magic-link';` |
+| `app/api/bodega/upload/route.ts` | `export { POST } from '@mitcheman/bodega/routes/upload';` |
+| `app/api/stripe/webhook/route.ts` | `export { POST } from '@mitcheman/bodega/routes/stripe-webhook';` |
+| `app/studio/verify/route.ts` | `export { GET } from '@mitcheman/bodega/routes/auth-verify';` |
+
+**Authed studio layout example** (`app/studio/(authed)/layout.tsx` — note
+the route group):
 
 ```tsx
 import { StudioLayout } from '@mitcheman/bodega';
 export default StudioLayout;
 ```
 
-### Wrap the root layout with CartProvider
+> **Export style**: `StudioLayout` is exported from the SDK both as a
+> default (from the file) and as a re-export named export (from the
+> package index). Use the named import (`import { StudioLayout }`) in
+> the consumer's layout — that style works in both cases and matches
+> the rest of the scaffold. `import StudioLayout from '@mitcheman/bodega'`
+> would NOT work (the package's default export is the index module
+> itself, not StudioLayout).
 
-Cart state lives client-side and is shared across the consumer
-experience. Edit `app/layout.tsx` to wrap `{children}`:
+**Login page example** (`app/studio/login/page.tsx` — outside (authed),
+so it renders without the auth-gating chrome):
+
+```tsx
+import { LoginPage } from '@mitcheman/bodega';
+export default LoginPage;
+```
+
+`LoginPage` wraps `useSearchParams()` in `<Suspense>` internally; no
+extra `force-dynamic` required.
+
+### Wrap the root layout with CartProvider — only if the site has a cart
+
+Cart state lives client-side. Wrap the root layout **only when
+`site_mode in {digital, commerce}`** — those are the modes that
+actually have `/cart`, `/checkout`, and `<AddToCartButton>`.
+
+For `site_mode in {marketing, showcase}`, skip this — there's no cart,
+and wrapping pulls a client component into the root layout for nothing
+(forces the whole tree client-rendered, hurts performance, no benefit).
+
+If `site_mode in {digital, commerce}`, edit `app/layout.tsx` to wrap
+`{children}`:
 
 ```tsx
 import { CartProvider } from '@mitcheman/bodega';
@@ -163,8 +291,14 @@ export default function RootLayout({ children }) {
 }
 ```
 
-Without this, any page using `useCart()` (Cart, Checkout, AddToCartButton)
-throws at render time.
+Without `CartProvider`, any page using `useCart()` (Cart, Checkout,
+AddToCartButton) throws at render time. So if you're scaffolding a
+showcase that later upgrades to commerce, the deploy run for the
+commerce upgrade adds the wrap then.
+
+Either way, `import './bodega-theme.css'` should still happen at the
+root layout — that one's mode-independent (every site_mode renders SDK
+components that read the theme vars).
 
 ## Step 4 — Preview mode vs. full commerce
 
@@ -255,6 +389,16 @@ state:
 ```
 
 Don't write either env var. Move on to the next env-var section.
+
+> **First-login still works without email.** When `email_setup: pending`,
+> the admin endpoint (`POST /api/bodega/auth/magic-link`) returns the
+> verify URL in the response body instead of trying to send it. The
+> `bodega:admin` and `bodega:invite` skills detect that response shape
+> and surface the URL directly to the operator, who hands it to the
+> merchant out-of-band (text/Signal/in person). Public `/studio/login`
+> still no-ops on `email_setup: pending` — bootstrap links only flow
+> through the admin path. Full security analysis lives in
+> `admin/SKILL.md` Step 1.
 
 If the user picks **set now**:
 
@@ -398,11 +542,79 @@ order confirmation email arrives 3 times.
 
 ## Step 7 — Deploy
 
+### 7a. Write `.vercelignore` first
+
+Even though `.gitignore` excludes some paths, the Vercel CLI uploads
+the working tree (not git's view) and applies `.vercelignore`
+separately. Without it, large media folders can choke the upload —
+especially on commerce projects where merchants drop full-resolution
+photos into `public/raw/` or similar.
+
+If `.vercelignore` doesn't exist, write this baseline:
+
 ```
-vercel deploy --prod
+# .vercelignore — keep the upload bundle small.
+# Vercel uploads the working tree (not git's view) when not using
+# --prebuilt; this file controls what's excluded from that upload.
+
+node_modules
+.next
+.git
+.DS_Store
+*.log
+
+# Common large-media drops merchants make:
+public/raw
+public/originals
+drafts
+exports
+*.psd
+*.ai
+*.sketch
+
+# Local-only env (env vars are pulled from Vercel project, not files):
+.env*.local
+.env.production.local
 ```
 
-Watch the build. On failure, surface the error in chosen voice.
+If a `.vercelignore` already exists, leave it alone — the merchant or
+their dotfiles set it up intentionally.
+
+### 7b. Choose deploy mode based on project size
+
+Two paths, picked by inspecting the on-disk size of paths that would
+actually upload (skip the `.vercelignore`d entries):
+
+```
+# Quick sizing — count anything we'd actually ship (rough, but enough)
+du -sh --exclude=node_modules --exclude=.next --exclude=.git \
+       --exclude=public/raw --exclude=public/originals .
+```
+
+- **Under ~50 MB** → standard upload:
+
+  ```
+  vercel deploy --prod
+  ```
+
+- **Over ~50 MB**, OR a previous attempt returned 413 / "request entity
+  too large" → prebuilt path. Build locally first; CLI uploads only
+  `.vercel/output/` (build artefacts), not the source tree:
+
+  ```
+  vercel build --prod
+  vercel deploy --prebuilt --prod
+  ```
+
+  Real-test floor: muddmannstudio (~20 MB photos + source) hit Vercel's
+  10 MB body limit on plain `vercel deploy`. Prebuilt sidesteps it
+  entirely. We bias toward prebuilt anyway when project size is
+  uncertain — the build runs the same as Vercel would do server-side,
+  so behavior is identical.
+
+### 7c. Watch the build
+
+On failure, surface the error in chosen voice.
 
 - **developer**: show the actual build log excerpt.
 - **simple**: translated error. Common translations:
@@ -413,6 +625,7 @@ Watch the build. On failure, surface the error in chosen voice.
 | `Build failed — out of memory` | "Your site is bigger than Vercel's free tier allows. I'll trim it." |
 | `Invalid Stripe key` | "The Stripe key isn't working. Let me ask for a fresh one." |
 | `Blob store not attached` | "Storage isn't connected. Fixing now." |
+| `413 / Request Entity Too Large` | "Your project is too big to upload directly. Switching to a smaller bundle and trying again." (then retry with `vercel build --prod && vercel deploy --prebuilt --prod`) |
 
 Retry once with the fix. Second failure → stop and ask for help.
 
@@ -439,6 +652,33 @@ deploy:
 If `state.backup: done` and `backup.auto_push: true`, invoke
 `{{command_prefix}}bodega:backup` with mode=`update` to push the latest
 changes to GitHub.
+
+### Per-deploy opt-out
+
+Two ways to skip the auto-push for a single deploy without flipping
+`auto_push: true` off project-wide:
+
+1. **Env var**: `BODEGA_NO_PUSH=1` in the shell that runs deploy.
+   Useful in CI ("deploy preview, don't pollute git history") or when
+   the user explicitly says "don't push this one." Doctor + status
+   surface this if it's set in the active shell.
+2. **Per-invocation flag**: when `{{command_prefix}}bodega:deploy` is
+   invoked standalone with the `--no-push` argument (or the user types
+   "deploy without pushing"), record `_session.skip_push: true`
+   in-memory and skip Step 10 once. Don't write this to `.bodega.md`
+   (it's per-invocation, not project policy).
+
+If either is in effect, log it in chosen voice so the user knows we
+respected the override:
+
+#### Developer voice:
+
+> ✓ Deployed. Auto-push skipped (BODEGA_NO_PUSH set / --no-push).
+
+#### Simple voice:
+
+> ✓ Your store is live. I didn't save a backup this time, like you
+> asked.
 
 ## Step 11 — Summary
 

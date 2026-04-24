@@ -25,7 +25,7 @@ The `/api/bodega/auth/magic-link` endpoint is **admin-protected**:
 it requires the `BODEGA_ADMIN_SECRET` value (provisioned during
 `$bodega:deploy` Step 5) in the
 `x-bodega-admin-secret` header. Without the header, the endpoint
-returns `403`. This prevents anyone from spamming magic links to
+returns `401`. This prevents anyone from spamming magic links to
 arbitrary emails.
 
 Read the secret from Vercel env (don't print the value):
@@ -56,9 +56,62 @@ rm .env.production.local
 ```
 
 > **If you call the endpoint without the header**, you'll get
-> `403 forbidden`. That's the intended behaviour — the magic-link
+> `401 unauthorized`. That's the intended behaviour — the magic-link
 > endpoint is not meant to be public, and merchants would be vulnerable
 > to spam if it were.
+
+### Branch on the response: did email actually send?
+
+The endpoint returns `email_sent: true | false`. Two paths:
+
+**`email_sent: true`** — Resend delivered. Tell the user to check
+their inbox. Don't show the URL anywhere.
+
+**`email_sent: false`** — The deploy was set up with `state.email_setup:
+pending` (the recommended default — see `deploy/SKILL.md` Step 5). The
+response body includes `verify_url`. Surface it directly:
+
+#### Simple voice:
+
+> Email isn't set up yet for this store, so I'll show you the login
+> link here. Open this in your browser to log in for the first time:
+>
+>   <verify_url>
+>
+> Heads up — this link is one-time use, expires in 24 hours, and
+> grants full owner access. Anyone who sees it can log in as you, so
+> don't paste it in chat or share it. Once you're in, you can set up
+> Resend later if you want emailed login links going forward.
+
+#### Developer voice:
+
+> Email unconfigured (RESEND_API_KEY / BODEGA_FROM_EMAIL unset).
+> Bootstrap link (24h TTL, single-use, owner role):
+>
+>   <verify_url>
+
+Either way, record the bootstrap event in `.bodega.md` so we know
+whether the operator has handed over the URL out-of-band:
+
+```yaml
+admin:
+  bootstrap_link_shown_at: 2026-04-22T14:35:00Z
+  bootstrap_link_reason: email_unconfigured
+```
+
+### Why showing the link to the operator is acceptable
+
+The endpoint is gated by `BODEGA_ADMIN_SECRET`. Anyone who can call it
+already has full owner equivalent on the deployment — they could read
+`BODEGA_SESSION_SECRET` from the same `vercel env` and forge a session
+directly without needing a magic link at all. So returning the URL in
+the response body when email is off doesn't expand attack surface; it
+just removes the email side-channel.
+
+The public `/api/bodega/auth/login` endpoint (the form on /studio/login)
+does NOT return the link — it logs it server-side and responds with
+the same constant anti-enumeration message either way. Bootstrap links
+only flow through this admin path.
 
 ## Step 2 — Send the welcome email
 
@@ -150,14 +203,17 @@ Tell the operator in chosen voice:
 ## Step 4b — Self-operator confirmation (if `handoff: false`)
 
 When the store owner is running this themselves, there's no handoff
-package — just a login link in their inbox. Tell them what to expect.
+package — just a login link. Phrasing depends on whether email actually
+sent (Step 1's `email_sent` flag).
 
-### Developer voice:
+### Email sent (`email_sent: true`)
+
+#### Developer voice:
 
 > ✓ Magic link sent to `<operator.email>`. Expires in 24h.
 > `/studio` is live at https://<url>/studio.
 
-### Simple voice:
+#### Simple voice:
 
 > ✓ Your admin is set up. I just emailed you a login link — check your
 > inbox in a minute (and peek at your spam folder if it's not there).
@@ -166,6 +222,31 @@ package — just a login link in their inbox. Tell them what to expect.
 > add products, see orders, and manage shipping. The link expires in
 > 24 hours; if you miss it, run `$bodega:admin` again
 > and I'll send a fresh one.
+
+### Email not sent (`email_sent: false`)
+
+You already showed the bootstrap URL in Step 1. Here, just remind them
+what they got and what to do later:
+
+#### Developer voice:
+
+> ✓ Bootstrap link printed above (email_setup: pending).
+> Configure RESEND_API_KEY + BODEGA_FROM_EMAIL on Vercel and redeploy
+> when you want emailed login links. Until then, re-run
+> `$bodega:admin` to mint fresh links.
+
+#### Simple voice:
+
+> ✓ Your admin is set up. The login link is the URL I just showed you
+> above — open it in your browser to get in.
+>
+> Once you're in `/studio`, you can add products and see orders. If
+> you ever lose the link or it expires (after 24 hours), come back here
+> and run `$bodega:admin` and I'll print a fresh one.
+>
+> When you're ready for emailed login links instead, you'll need a
+> Resend account (free at resend.com) and a domain you own. We can
+> set that up any time.
 
 ## Step 5 — Update `.bodega.md`
 
