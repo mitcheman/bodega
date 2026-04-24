@@ -9,6 +9,42 @@ land in a minor-version bump.
 
 ## [Unreleased]
 
+### Vercel CLI 52 blob-store subcommand drift (real-test)
+
+`hosting/SKILL.md` Step 3 documented `vercel blob store add
+bodega-store` + `vercel blob store connect bodega-store` (the CLI
+50/51 shape from round 2). On CLI 52 the subcommand surface
+re-shifted: `store add` and `store connect` no longer exist. The
+real shape is `vercel blob create-store <name> --access=public --yes`,
+and there is no separate `connect-store` subcommand at all — linking
+happens during `create-store` via a "connect to environments?"
+prompt that `--yes` accepts.
+
+Real-test impact: a setup pass got past `link` and `vercel env add`,
+hit Step 3 with the documented (stale) commands, watched
+`store add` error out, fell into prompt-hang on `create-store`
+without flags, eventually had to wire `BLOB_READ_WRITE_TOKEN`
+manually via `vercel env add` — which then ran into the
+stdin-newline footgun and stored an empty value. Cascading
+breakage from one stale subcommand.
+
+Fix in `hosting/SKILL.md` Step 3:
+
+- Replaced the CLI 50/51 commands with the CLI 52 shape:
+  `vercel blob create-store bodega-store --access=public --yes`.
+- Added a 3-row CLI version compatibility table so future drift is
+  obvious at a glance.
+- Idempotency check via `vercel blob list-stores | grep` instead of
+  re-running `create-store` (which errors on existing names).
+- Documented why each flag is required: `--yes` is the only way to
+  accept the auto-link-to-environments prompt in non-TTY shells (no
+  separate `connect` exists), and `--access=public` is required
+  both by the CLI and by Bodega's SDK code (which writes blobs with
+  `access: 'public'`).
+- Manual dashboard fallback for the case where CLI somehow can't
+  link the store to the project (Storage → bodega-store → Connect
+  Project).
+
 ### Validation findings — round 6
 
 Two real issues surfaced during validation of the round-5 doc fix.

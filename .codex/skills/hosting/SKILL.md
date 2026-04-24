@@ -166,37 +166,73 @@ or surface the error to the user.
 ## Step 3 — Provision storage
 
 One Vercel Blob store for products and images. The CLI surface for
-storage shifted in CLI 50+; old `vercel storage create --type blob`
-syntax is gone. Use the current Blob-specific commands:
+storage has shifted **twice** — verify with `vercel blob --help`
+before assuming any specific subcommand shape:
+
+| Vercel CLI | Subcommand shape | Notes |
+|---|---|---|
+| 49 and earlier | `vercel storage create --type blob <name>` | top-level `storage`; gone |
+| 50–51 | `vercel blob store add <name>` + `vercel blob store connect <name>` | nested `store add`/`store connect`; gone |
+| 52+ (current) | `vercel blob create-store <name> --access=public --yes` | flat verbs; one shot, no separate connect step |
+
+This SKILL targets CLI 52+. Doctor warns + bails if the user's CLI
+is older than 50 (`MIN_VERCEL_MAJOR` in `doctor/scripts/check.mjs`),
+so you can assume 52+ here. If you're somehow on 50/51, upgrade:
+`npm i -g vercel@latest`.
+
+### CLI 52 shape — what we use
 
 ```
-# Create the blob store (idempotent — checks for existing first)
-vercel blob store add bodega-store
+# Create the blob store + connect it to all environments in one
+# command. --yes accepts the "connect to environments?" prompt
+# (which would otherwise hang in non-TTY shells). --access=public
+# is required: bodega stores both product images AND magic-link
+# records as public blobs (the magic-link records rely on
+# unguessable 32-byte token paths instead of access control).
+#
+# Idempotent — list-stores returns project-linked stores; if
+# bodega-store already shows up, skip create.
+if ! vercel blob list-stores 2>/dev/null | grep -q '^\s*bodega-store\b'; then
+  vercel blob create-store bodega-store --access=public --yes
+fi
+
+# Verify the token landed on the production env
+vercel env ls production | grep -q '^BLOB_READ_WRITE_TOKEN\b' \
+  || { echo "❌ BLOB_READ_WRITE_TOKEN not provisioned"; exit 1; }
 ```
 
-Attach the store to the linked project so `BLOB_READ_WRITE_TOKEN`
-auto-provisions on the project's env:
+> **No separate `connect` step on CLI 52.** There used to be a
+> `vercel blob store connect` subcommand on CLI 50/51 — it's gone.
+> Linking happens during `create-store` via the prompt that `--yes`
+> accepts, or never. If a previous setup created a store without
+> linking it, the only way to link it after the fact is the Vercel
+> dashboard (Storage → bodega-store → Connect Project) — there's
+> no CLI path. So always run `create-store` with `--yes` so the
+> link happens atomically with creation.
 
-```
-vercel blob store connect bodega-store
-```
+> **`--access=public` is required.** The flag isn't optional on CLI
+> 52 — `vercel blob create-store bodega-store` (no flag) errors with
+> "access is required". And bodega specifically needs `public`: the
+> SDK's `auth/blob-storage.ts` and `routes/upload.ts` both call
+> `put(..., { access: 'public', ... })`, which requires a
+> public-capable store. A `--access=private` store would refuse
+> public puts.
 
-Verify the env var landed:
+### Manual fallback (only if CLI path failed)
 
-```
-vercel env ls | grep BLOB_READ_WRITE_TOKEN
-```
+If `create-store` errored or the token didn't land, the dashboard
+path:
 
-If for any reason the auto-attach failed, the user can manually link
-in the Vercel dashboard (Storage → bodega-store → Connect Project).
-Don't proceed to deploy without the token in env or `app/api/bodega/upload`
-will 500.
+1. https://vercel.com/dashboard → Storage tab
+2. Either click the existing `bodega-store` and "Connect Project"
+   to the muddmann project, or "Create" a new Blob store, name it
+   `bodega-store`, set Access to Public, link to the muddmann
+   project on creation.
+3. Re-run the verify: `vercel env ls production | grep BLOB_READ_WRITE_TOKEN`.
 
-> **Verify against `vercel --version` first.** This SKILL.md targets
-> Vercel CLI 50+. If the user's CLI is older (doctor warns about this)
-> upgrade them with `npm i -g vercel@latest` before running storage
-> commands — the older CLIs accept different subcommand shapes and
-> will fail or worse, succeed with the wrong defaults.
+Don't proceed to `bodega:deploy` without the token in env — every
+magic-link request, every image upload, every product write will
+500 (or 503 with a clearer message after SDK ≥ 0.3.1).
 
 ### Simple voice:
 
